@@ -1113,6 +1113,13 @@ class MockAudioPlayer implements AudioPlayerPlatform {
   }
 
   @override
+  Future<SetPauseAtEndOfMediaItemsResponse>
+  setPauseAtEndOfMediaItems(
+      SetPauseAtEndOfMediaItemsRequest request) async {
+    return SetPauseAtEndOfMediaItemsResponse();
+  }
+
+  @override
   Future<SetLoopModeResponse> setLoopMode(SetLoopModeRequest request) async {
     return SetLoopModeResponse();
   }

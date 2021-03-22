@@ -323,6 +323,10 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener, Aud
                 setShuffleOrder(call.argument("audioSource"));
                 result.success(new HashMap<String, Object>());
                 break;
+            case "setPauseAtEndOfMediaItems":
+                setPauseAtEndOfMediaItems((boolean) call.argument("enabled"));
+                result.success(new HashMap<String, Object>());
+                break;
             case "setAutomaticallyWaitsToMinimizeStalling":
                 result.success(new HashMap<String, Object>());
                 break;
@@ -422,6 +426,10 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener, Aud
             setShuffleOrder(mapGet(map, "child"));
             break;
         }
+    }
+
+    private void setPauseAtEndOfMediaItems(final boolean pauseAtEndOfMediaItems) {
+        player.setPauseAtEndOfMediaItems(pauseAtEndOfMediaItems);
     }
 
     private MediaSource getAudioSource(final Object json) {
@@ -684,6 +692,10 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener, Aud
 
     public void setShuffleModeEnabled(final boolean enabled) {
         player.setShuffleModeEnabled(enabled);
+    }
+
+    public void setSomething(){
+        player.setPauseAtEndOfMediaItems(true);
     }
 
     public void seek(final long position, final Integer index, final Result result) {

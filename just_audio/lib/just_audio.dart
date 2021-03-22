@@ -91,10 +91,13 @@ class AudioPlayer {
   // ignore: close_sinks
   BehaviorSubject<Duration>? _positionSubject;
   bool _automaticallyWaitsToMinimizeStalling = true;
+  bool _pauseAtEndOfMediaItems = false;
   bool _playInterrupted = false;
   AndroidAudioAttributes? _androidAudioAttributes;
   final bool _androidApplyAudioAttributes;
   final bool _handleAudioSessionActivation;
+
+
 
   /// Creates an [AudioPlayer].
   ///
@@ -426,6 +429,10 @@ class AudioPlayer {
   /// minimize stalling. (iOS 10.0 or later only)
   bool get automaticallyWaitsToMinimizeStalling =>
       _automaticallyWaitsToMinimizeStalling;
+
+  /// Whether the player will pause at the end of each media item
+  bool get pauseAtEndOfMediaItems =>
+      _pauseAtEndOfMediaItems;
 
   /// The current position of the player.
   Duration get position {
@@ -891,6 +898,16 @@ class AudioPlayer {
     await (await _platform).setAutomaticallyWaitsToMinimizeStalling(
         SetAutomaticallyWaitsToMinimizeStallingRequest(
             enabled: automaticallyWaitsToMinimizeStalling));
+  }
+
+  Future<void> setPauseAtEndOfMediaItems(
+      final bool setPauseAtEndOfMediaItems) async {
+    if (_disposed) return;
+    _pauseAtEndOfMediaItems =
+        setPauseAtEndOfMediaItems;
+    await (await _platform).setPauseAtEndOfMediaItems(
+        SetPauseAtEndOfMediaItemsRequest(
+            enabled: setPauseAtEndOfMediaItems));
   }
 
   /// Seeks to a particular [position]. If a composition of multiple
@@ -1374,6 +1391,9 @@ class SequenceState {
   List<IndexedAudioSource> get effectiveSequence => shuffleModeEnabled
       ? shuffleIndices.map((i) => sequence[i]).toList()
       : sequence;
+
+  @override
+  String toString() => 'currentIndex=$currentIndex;sequence.Length=${sequence.length};shuffleModeEnabled=$shuffleModeEnabled;loopMode=$loopMode';
 }
 
 /// A local proxy HTTP server for making remote GET requests with headers.
@@ -2620,6 +2640,13 @@ class _IdleAudioPlayer extends AudioPlayerPlatform {
       setAutomaticallyWaitsToMinimizeStalling(
           SetAutomaticallyWaitsToMinimizeStallingRequest request) async {
     return SetAutomaticallyWaitsToMinimizeStallingResponse();
+  }
+
+  @override
+  Future<SetPauseAtEndOfMediaItemsResponse>
+  setPauseAtEndOfMediaItems(
+      SetPauseAtEndOfMediaItemsRequest request) async {
+    return SetPauseAtEndOfMediaItemsResponse();
   }
 
   @override

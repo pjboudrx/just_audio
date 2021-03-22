@@ -15,3 +15,5 @@ build/
 .flutter-plugins
 coverage
 pubspec.lock
+
+.idea
