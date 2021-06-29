@@ -70,10 +70,12 @@ class AudioPlayer {
   _InitialSeekValues? _initialSeekValues;
 
   PlaybackEvent _playbackEvent = PlaybackEvent();
+  ErrorAndStackTrace? _errorAndStackTrace;
   final _playbackEventSubject = BehaviorSubject<PlaybackEvent>(sync: true);
   Future<Duration?>? _durationFuture;
   final _durationSubject = BehaviorSubject<Duration?>();
   final _processingStateSubject = BehaviorSubject<ProcessingState>();
+  final _playbackErrorSubject = BehaviorSubject<ErrorAndStackTrace>(sync: true);
   final _playingSubject = BehaviorSubject.seeded(false);
   final _volumeSubject = BehaviorSubject.seeded(1.0);
   final _speedSubject = BehaviorSubject.seeded(1.0);
@@ -96,6 +98,8 @@ class AudioPlayer {
   AndroidAudioAttributes? _androidAudioAttributes;
   final bool _androidApplyAudioAttributes;
   final bool _handleAudioSessionActivation;
+
+
 
 
 
@@ -262,6 +266,11 @@ class AudioPlayer {
 
   /// A stream of [PlaybackEvent]s.
   Stream<PlaybackEvent> get playbackEventStream => _playbackEventSubject.stream;
+
+  /// A stream of [ErrorInfo]s
+  Stream<ErrorAndStackTrace> get playbackErrorStream => _playbackErrorSubject.stream;
+
+  ErrorAndStackTrace? get errorAndStackTrace => _errorAndStackTrace;
 
   /// The duration of the current audio or `null` if unknown.
   Duration? get duration => _playbackEvent.duration;
@@ -928,8 +937,9 @@ class AudioPlayer {
           updateTime: DateTime.now(),
         );
         _playbackEventSubject.add(_playbackEvent);
-        await (await _platform)
+        final seekResponse = await (await _platform)
             .seek(SeekRequest(position: position, index: index));
+
     }
   }
 
@@ -1055,7 +1065,14 @@ class AudioPlayer {
           _durationSubject.add(playbackEvent.duration);
         }
         _playbackEventSubject.add(_playbackEvent = playbackEvent);
-      }, onError: _playbackEventSubject.addError);
+      }, onError: (Object error, StackTrace? stackTrace) {
+            _playbackEventSubject.addError(error, stackTrace);
+            
+            // the above does not seem to work, so sending on a dedicated error stream:
+            _errorAndStackTrace = ErrorAndStackTrace(error, stackTrace);
+            _playbackErrorSubject.add(_errorAndStackTrace!);
+
+          });
 
       if (active) {
         final automaticallyWaitsToMinimizeStalling =
@@ -1249,6 +1266,10 @@ enum ProcessingState {
 
   /// The player has reached the end of the audio.
   completed,
+}
+
+class ErrorInfo{
+
 }
 
 /// Encapsulates the playing and processing states. These two states vary

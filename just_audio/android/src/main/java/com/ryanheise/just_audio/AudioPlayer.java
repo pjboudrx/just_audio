@@ -262,7 +262,8 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener, Aud
         default:
             Log.e(TAG, "default: " + error.getUnexpectedException().getMessage());
         }
-        sendError(String.valueOf(error.type), error.getMessage());
+        sendError(String.valueOf(error.type), error.getMessage(), error);
+
         errorCount++;
         if (player.hasNext() && currentIndex != null && errorCount <= 5) {
             int nextIndex = currentIndex + 1;
@@ -583,6 +584,7 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener, Aud
         if (eventSink != null) {
             eventSink.success(event);
         }
+
     }
 
     private Map<String, Object> collectIcyMetadata() {
@@ -624,14 +626,14 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener, Aud
         }
     }
 
-    private void sendError(String errorCode, String errorMsg) {
+    private void sendError(String errorCode, String errorMsg, Object error) {
         if (prepareResult != null) {
-            prepareResult.error(errorCode, errorMsg, null);
+            prepareResult.error(errorCode, errorMsg, error);
             prepareResult = null;
         }
 
         if (eventSink != null) {
-            eventSink.error(errorCode, errorMsg, null);
+            eventSink.error(errorCode, errorMsg, error);
         }
     }
 
@@ -739,7 +741,7 @@ public class AudioPlayer implements MethodCallHandler, Player.EventListener, Aud
     }
 
     private void abortExistingConnection() {
-        sendError("abort", "Connection aborted");
+        sendError("abort", "Connection aborted", null);
     }
 
     public static Long getLong(Object o) {
