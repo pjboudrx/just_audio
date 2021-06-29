@@ -104,10 +104,12 @@ class AudioPlayer {
   final AudioPipeline _audioPipeline;
 
   PlaybackEvent _playbackEvent = PlaybackEvent();
+  ErrorAndStackTrace? _errorAndStackTrace;
   final _playbackEventSubject = BehaviorSubject<PlaybackEvent>(sync: true);
   Future<Duration?>? _durationFuture;
   final _durationSubject = BehaviorSubject<Duration?>();
   final _processingStateSubject = BehaviorSubject<ProcessingState>();
+  final _playbackErrorSubject = BehaviorSubject<ErrorAndStackTrace>(sync: true);
   final _playingSubject = BehaviorSubject.seeded(false);
   final _volumeSubject = BehaviorSubject.seeded(1.0);
   final _speedSubject = BehaviorSubject.seeded(1.0);
@@ -358,6 +360,11 @@ class AudioPlayer {
 
   /// A stream of [PlaybackEvent]s.
   Stream<PlaybackEvent> get playbackEventStream => _playbackEventSubject.stream;
+
+  /// A stream of [ErrorAndStackTrace]s
+  Stream<ErrorAndStackTrace> get playbackErrorStream => _playbackErrorSubject.stream;
+
+  ErrorAndStackTrace? get errorAndStackTrace => _errorAndStackTrace;
 
   /// The duration of the current audio or `null` if unknown.
   Duration? get duration => _playbackEvent.duration;
