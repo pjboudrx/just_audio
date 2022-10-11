@@ -380,10 +380,10 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
                 Log.e(TAG, "default ExoPlaybackException: " + exoError.getUnexpectedException().getMessage());
             }
             // TODO: send both errorCode and type
-            sendError(String.valueOf(error.type), error.getMessage(), error);
+            sendError(String.valueOf(exoError.type), error.getMessage(), error);
         } else {
             Log.e(TAG, "default PlaybackException: " + error.getMessage());
-            sendError(String.valueOf(error.errorCode), error.getMessage());
+            sendError(String.valueOf(error.errorCode), error.getMessage(), error);
         }
         errorCount++;
         if (player.hasNextMediaItem() && currentIndex != null && errorCount <= 5) {
@@ -962,10 +962,6 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
 
     public void setShuffleModeEnabled(final boolean enabled) {
         player.setShuffleModeEnabled(enabled);
-    }
-
-    public void setSomething(){
-        player.setPauseAtEndOfMediaItems(true);
     }
 
     public void seek(final long position, final Integer index, final Result result) {

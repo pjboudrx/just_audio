@@ -154,6 +154,12 @@ abstract class AudioPlayerPlatform {
         "setPreferredPeakBitRate() has not been implemented.");
   }
 
+  /// On Android, instructs the player to pause at the end of each media item
+  Future<SetPauseAtEndOfMediaItemsResponse> setPauseAtEndOfMediaItems(
+      SetPauseAtEndOfMediaItemsRequest request){
+    throw UnimplementedError("setPauseAtEndOfMediaItems() has not been implemented.");
+  }
+
   /// Seeks to the given index and position.
   Future<SeekResponse> seek(SeekRequest request) {
     throw UnimplementedError("seek() has not been implemented.");
@@ -699,6 +705,26 @@ class SetPreferredPeakBitRateResponse {
   static SetPreferredPeakBitRateResponse fromMap(Map<dynamic, dynamic> map) =>
       SetPreferredPeakBitRateResponse();
 }
+
+/// Information communicated to the platform implementation when setting the
+/// automaticallyWaitsToMinimizeStalling option.
+class SetPauseAtEndOfMediaItemsRequest {
+  final bool pauseAtEndOfMediaItems;
+
+  SetPauseAtEndOfMediaItemsRequest({required this.pauseAtEndOfMediaItems});
+
+  Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
+    'pauseAtEndOfMediaItems': pauseAtEndOfMediaItems,
+  };
+}
+
+/// Information returned by the platform implementation after setting the
+/// pauseAtEndOfMediaItems option.
+class SetPauseAtEndOfMediaItemsResponse {
+  static SetPauseAtEndOfMediaItemsResponse fromMap(Map<dynamic, dynamic> map) =>
+      SetPauseAtEndOfMediaItemsResponse();
+}
+
 
 /// Information communicated to the platform implementation when seeking to a
 /// position and index.

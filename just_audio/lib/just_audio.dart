@@ -1103,13 +1103,13 @@ class AudioPlayer {
 
   /// Sets whether to pause at the end of each media item. Android only.
   Future<void> setPauseAtEndOfMediaItems(
-      final bool setPauseAtEndOfMediaItems) async {
+      final bool pauseAtEndOfMediaItems) async {
     if (_disposed) return;
     _pauseAtEndOfMediaItems =
-        setPauseAtEndOfMediaItems;
+        pauseAtEndOfMediaItems;
     await (await _platform).setPauseAtEndOfMediaItems(
         SetPauseAtEndOfMediaItemsRequest(
-            enabled: setPauseAtEndOfMediaItems));
+            pauseAtEndOfMediaItems: pauseAtEndOfMediaItems));
   }
 
   /// Seeks to a particular [position]. If a composition of multiple
