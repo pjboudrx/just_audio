@@ -1109,7 +1109,7 @@ class AudioPlayer {
         pauseAtEndOfMediaItems;
     await (await _platform).setPauseAtEndOfMediaItems(
         SetPauseAtEndOfMediaItemsRequest(
-            pauseAtEndOfMediaItems: pauseAtEndOfMediaItems));
+            enabled: pauseAtEndOfMediaItems));
   }
 
   /// Seeks to a particular [position]. If a composition of multiple

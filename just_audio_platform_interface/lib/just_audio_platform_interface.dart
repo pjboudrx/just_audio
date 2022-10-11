@@ -709,12 +709,12 @@ class SetPreferredPeakBitRateResponse {
 /// Information communicated to the platform implementation when setting the
 /// automaticallyWaitsToMinimizeStalling option.
 class SetPauseAtEndOfMediaItemsRequest {
-  final bool pauseAtEndOfMediaItems;
+  final bool enabled;
 
-  SetPauseAtEndOfMediaItemsRequest({required this.pauseAtEndOfMediaItems});
+  SetPauseAtEndOfMediaItemsRequest({required this.enabled});
 
   Map<dynamic, dynamic> toMap() => <dynamic, dynamic>{
-    'pauseAtEndOfMediaItems': pauseAtEndOfMediaItems,
+    'pauseAtEndOfMediaItems': enabled,
   };
 }
 

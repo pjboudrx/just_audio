@@ -892,7 +892,7 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
             prepareResult = null;
         }
 
-        eventSink.error(errorCode, errorMsg, null);
+        eventChannel.error(errorCode, errorMsg, null);
     }
 
     private String getLowerCaseExtension(Uri uri) {
