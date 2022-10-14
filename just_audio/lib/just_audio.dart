@@ -105,6 +105,8 @@ class AudioPlayer {
 
   PlaybackEvent _playbackEvent = PlaybackEvent();
   final _playbackEventSubject = BehaviorSubject<PlaybackEvent>(sync: true);
+  final _playbackErrorSubject = BehaviorSubject<ErrorAndStackTrace>(sync: true);
+  ErrorAndStackTrace? _errorAndStackTrace;
   Future<Duration?>? _durationFuture;
   final _durationSubject = BehaviorSubject<Duration?>();
   final _processingStateSubject = BehaviorSubject<ProcessingState>();
@@ -358,6 +360,12 @@ class AudioPlayer {
 
   /// A stream of [PlaybackEvent]s.
   Stream<PlaybackEvent> get playbackEventStream => _playbackEventSubject.stream;
+
+  /// A stream of [ErrorAndStackTrace]s
+  Stream<ErrorAndStackTrace> get playbackErrorStream => _playbackErrorSubject.stream;
+
+  /// The latest [ErrorAndStackTrace]
+  ErrorAndStackTrace? get errorAndStackTrace => _errorAndStackTrace;
 
   /// The duration of the current audio or `null` if unknown.
   Duration? get duration => _playbackEvent.duration;
@@ -1328,7 +1336,13 @@ class AudioPlayer {
             _playbackEvent.processingState == ProcessingState.idle) {
           _setPlatformActive(false)?.catchError((dynamic e) async => null);
         }
-      }, onError: _playbackEventSubject.addError);
+      },  onError: (Object error, StackTrace? stackTrace) {
+            _playbackEventSubject.addError(error, stackTrace);
+
+            // the above does not seem to work, so sending on a dedicated error stream:
+            _errorAndStackTrace = ErrorAndStackTrace(error, stackTrace);
+            _playbackErrorSubject.add(_errorAndStackTrace!);
+      });
     }
 
     Future<AudioPlayerPlatform> setPlatform() async {

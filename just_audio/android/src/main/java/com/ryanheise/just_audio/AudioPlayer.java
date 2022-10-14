@@ -380,10 +380,10 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
                 Log.e(TAG, "default ExoPlaybackException: " + exoError.getUnexpectedException().getMessage());
             }
             // TODO: send both errorCode and type
-            sendError(String.valueOf(exoError.type), exoError.getMessage());
+            sendError(String.valueOf(exoError.type), exoError.getMessage(), error);
         } else {
             Log.e(TAG, "default PlaybackException: " + error.getMessage());
-            sendError(String.valueOf(error.errorCode), error.getMessage());
+            sendError(String.valueOf(error.errorCode), error.getMessage(), null);
         }
         errorCount++;
         if (player.hasNextMediaItem() && currentIndex != null && errorCount <= 5) {
@@ -886,9 +886,9 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
         }
     }
 
-    private void sendError(String errorCode, String errorMsg) {
+    private void sendError(String errorCode, String errorMsg, Object error) {
         if (prepareResult != null) {
-            prepareResult.error(errorCode, errorMsg, null);
+            prepareResult.error(errorCode, errorMsg, error);
             prepareResult = null;
         }
 
@@ -1016,7 +1016,7 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
     }
 
     private void abortExistingConnection() {
-        sendError("abort", "Connection aborted");
+        sendError("abort", "Connection aborted", null);
     }
 
     // Dart can't distinguish between int sizes so
