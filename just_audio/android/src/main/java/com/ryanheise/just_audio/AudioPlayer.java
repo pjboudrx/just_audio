@@ -462,6 +462,10 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
             case "setPreferredPeakBitRate":
                 result.success(new HashMap<String, Object>());
                 break;
+            case "setPauseAtEndOfMediaItems":
+                setPauseAtEndOfMediaItems((boolean) call.argument("pauseAtEndOfMediaItems"));
+                result.success(new HashMap<String, Object>());
+                break;
             case "seek":
                 Long position = getLong(call.argument("position"));
                 Integer index = call.argument("index");
@@ -575,6 +579,10 @@ public class AudioPlayer implements MethodCallHandler, Player.Listener, Metadata
             setShuffleOrder(mapGet(map, "child"));
             break;
         }
+    }
+
+    private void setPauseAtEndOfMediaItems(final boolean pauseAtEndOfMediaItems) {
+        player.setPauseAtEndOfMediaItems(pauseAtEndOfMediaItems);
     }
 
     private MediaSource getAudioSource(final Object json) {

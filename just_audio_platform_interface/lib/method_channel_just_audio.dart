@@ -148,6 +148,14 @@ class MethodChannelAudioPlayer extends AudioPlayerPlatform {
   }
 
   @override
+  Future<SetPauseAtEndOfMediaItemsResponse> setPauseAtEndOfMediaItems(
+      SetPauseAtEndOfMediaItemsRequest request) async {
+    return SetPauseAtEndOfMediaItemsResponse.fromMap(
+        (await _channel.invokeMethod<Map<dynamic, dynamic>>(
+            'setPauseAtEndOfMediaItems', request.toMap()))!);
+  }
+
+  @override
   Future<SeekResponse> seek(SeekRequest request) async {
     return SeekResponse.fromMap((await _channel
         .invokeMethod<Map<dynamic, dynamic>>('seek', request.toMap()))!);

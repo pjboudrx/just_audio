@@ -132,6 +132,7 @@ class AudioPlayer {
   bool _automaticallyWaitsToMinimizeStalling = true;
   bool _canUseNetworkResourcesForLiveStreamingWhilePaused = false;
   double _preferredPeakBitRate = 0;
+  bool _pauseAtEndOfMediaItems = false;
   bool _playInterrupted = false;
   bool _platformLoading = false;
   AndroidAudioAttributes? _androidAudioAttributes;
@@ -546,6 +547,9 @@ class AudioPlayer {
   /// iOS/macOS.
   bool get canUseNetworkResourcesForLiveStreamingWhilePaused =>
       _canUseNetworkResourcesForLiveStreamingWhilePaused;
+
+  /// Whether the player will pause at the end of each media item
+  bool get pauseAtEndOfMediaItems =>  _pauseAtEndOfMediaItems;
 
   /// The preferred peak bit rate (in bits per second) of bandwidth usage on iOS/macOS.
   double get preferredPeakBitRate => _preferredPeakBitRate;
@@ -1078,6 +1082,19 @@ class AudioPlayer {
         .setCanUseNetworkResourcesForLiveStreamingWhilePaused(
             SetCanUseNetworkResourcesForLiveStreamingWhilePausedRequest(
                 enabled: canUseNetworkResourcesForLiveStreamingWhilePaused));
+  }
+
+  /// Sets pauseAtEndOfMediaItems
+  /// On Android, true means the player will pause at the end of each media item.
+  /// Defaults to false
+  Future<void> setPauseAtEndOfMediaItems(
+      final bool setPauseAtEndOfMediaItems) async {
+    if (_disposed) return;
+    _pauseAtEndOfMediaItems =
+        setPauseAtEndOfMediaItems;
+    await (await _platform).setPauseAtEndOfMediaItems(
+        SetPauseAtEndOfMediaItemsRequest(
+            pauseAtEndOfMediaItems: setPauseAtEndOfMediaItems));
   }
 
   /// Sets preferredPeakBitRate on iOS/macOS, defaults to true.
