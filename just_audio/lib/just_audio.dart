@@ -3555,6 +3555,12 @@ class _IdleAudioPlayer extends AudioPlayerPlatform {
           AndroidLoudnessEnhancerSetTargetGainRequest request) async {
     return AndroidLoudnessEnhancerSetTargetGainResponse();
   }
+
+  @override
+  Future<SetPauseAtEndOfMediaItemsResponse> setPauseAtEndOfMediaItems(
+      SetPauseAtEndOfMediaItemsRequest request) async {
+    return SetPauseAtEndOfMediaItemsResponse();
+  }
 }
 
 /// Holds the initial requested position and index for a newly loaded audio
