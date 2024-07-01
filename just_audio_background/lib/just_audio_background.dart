@@ -284,6 +284,13 @@ class _JustAudioPlayer extends AudioPlayerPlatform {
           SetShuffleOrderRequest request) =>
       _playerAudioHandler.customSetShuffleOrder(request);
 
+  /// On Android, instructs the player to pause at the end of each media item
+  Future<SetPauseAtEndOfMediaItemsResponse> setPauseAtEndOfMediaItems(
+      SetPauseAtEndOfMediaItemsRequest request){
+
+    return _playerAudioHandler.customSetPauseAtEndOfMediaItems(request);
+  }
+
   @override
   Future<SeekResponse> seek(SeekRequest request) async {
     return await _playerAudioHandler.customPlayerSeek(request);
@@ -453,6 +460,10 @@ class _PlayerAudioHandler extends BaseAudioHandler
     return await (await _player).setShuffleOrder(SetShuffleOrderRequest(
       audioSourceMessage: _source!,
     ));
+  }
+
+  Future<SetPauseAtEndOfMediaItemsResponse> customSetPauseAtEndOfMediaItems(SetPauseAtEndOfMediaItemsRequest request) async {
+    return await (await _player).setPauseAtEndOfMediaItems(request);
   }
 
   Future<ConcatenatingInsertAllResponse> customConcatenatingInsertAll(
