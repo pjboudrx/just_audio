@@ -1,3 +1,7 @@
+## 0.4.13
+
+* Fix `dart2js`/`dart2wasm` compile error with Flutter 3.26.0 (@SleepySquash).
+
 ## 0.4.12
 
 * Bump package:web version to `>=0.5.1 <2.0.0` (@ali2236)
