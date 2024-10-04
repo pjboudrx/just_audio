@@ -2,6 +2,10 @@
 
 * Fix conversion between milliBel and deciBel (@Chaphasilor).
 
+## 0.9.41
+
+* Fix stop() to cause play() to return on iOS.
+
 ## 0.9.40
 
 * Fix JDK 21 compile error.
