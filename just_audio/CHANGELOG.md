@@ -2,6 +2,10 @@
 
 * Fix conversion between milliBel and deciBel (@Chaphasilor).
 
+## 0.9.42
+
+* Fix dealloc crash on iOS/macOS (@cristian1980).
+
 ## 0.9.41
 
 * Fix stop() to cause play() to return on iOS.
