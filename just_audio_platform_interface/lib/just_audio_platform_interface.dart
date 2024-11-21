@@ -77,7 +77,7 @@ abstract class AudioPlayerPlatform {
       const Stream<PlayerDataMessage>.empty();
 
   /// Sets a specific device output id, null for default
-  void setDeviceId(String? deviceId) {
+  Future<void> setDeviceId(String? deviceId) {
     throw UnimplementedError("setDeviceId() has not been implemented.");
   }
 

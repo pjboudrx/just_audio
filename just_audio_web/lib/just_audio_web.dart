@@ -181,7 +181,7 @@ class Html5AudioPlayer extends JustAudioPlayer {
 
   /// Sets a specific device output id, null for default
   Future<void> setDeviceId(String? deviceId) async {
-    _audioElement.setSinkId(deviceId ?? '');
+    await _audioElement.setSinkId(deviceId ?? '');
   }
 
   /// Called when playback reaches the end of an item.
