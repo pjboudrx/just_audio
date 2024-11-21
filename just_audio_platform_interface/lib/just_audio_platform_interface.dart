@@ -76,6 +76,11 @@ abstract class AudioPlayerPlatform {
   Stream<PlayerDataMessage> get playerDataMessageStream =>
       const Stream<PlayerDataMessage>.empty();
 
+  /// Sets a specific device output id, null for default
+  void setDeviceId(String? deviceId) {
+    throw UnimplementedError("setDeviceId() has not been implemented.");
+  }
+
   /// Loads an audio source.
   Future<LoadResponse> load(LoadRequest request) {
     throw UnimplementedError("load() has not been implemented.");

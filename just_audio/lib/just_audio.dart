@@ -1528,6 +1528,11 @@ class AudioPlayer {
     return durationCompleter.future;
   }
 
+  /// Sets a specific device output id, null for default
+  void setDeviceId(String? id) {
+    _platform.setDeviceId(id);
+  }
+
   /// Dispose of the given platform.
   Future<void> _disposePlatform(AudioPlayerPlatform platform) async {
     if (platform is _IdleAudioPlayer) {
