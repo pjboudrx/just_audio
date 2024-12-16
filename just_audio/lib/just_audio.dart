@@ -1529,8 +1529,8 @@ class AudioPlayer {
   }
 
   /// Sets a specific device output id, null for default
-  Future<void> setWebSinkId(String? id) async {
-    await (await _platform).setWebSinkId(id);
+  Future<void> setWebSinkId(String? sinkId) async {
+    await (await _platform).setWebSinkId(sinkId);
   }
 
   /// Dispose of the given platform.
