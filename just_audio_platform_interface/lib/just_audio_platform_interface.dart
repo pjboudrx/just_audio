@@ -77,8 +77,8 @@ abstract class AudioPlayerPlatform {
       const Stream<PlayerDataMessage>.empty();
 
   /// Sets a specific device output id, null for default
-  Future<void> setDeviceId(String? deviceId) {
-    throw UnimplementedError("setDeviceId() has not been implemented.");
+  Future<void> setWebSinkId(String? deviceId) {
+    throw UnimplementedError("setWebSinkId() has not been implemented.");
   }
 
   /// Loads an audio source.
