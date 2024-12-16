@@ -26,4 +26,3 @@ dev_dependencies:
 environment:
   sdk: ^3.2.1
   flutter: '>=3.16.0'
-  
