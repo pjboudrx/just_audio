@@ -1,5 +1,5 @@
-#import "AudioSource.h"
-#import "ConcatenatingAudioSource.h"
+#import "./include/just_audio/AudioSource.h"
+#import "./include/just_audio/ConcatenatingAudioSource.h"
 #import <AVFoundation/AVFoundation.h>
 #import <stdlib.h>
 

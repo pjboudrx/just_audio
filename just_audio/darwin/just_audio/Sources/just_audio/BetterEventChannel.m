@@ -1,4 +1,4 @@
-#import "BetterEventChannel.h"
+#import "./include/just_audio/BetterEventChannel.h"
 
 @implementation BetterEventChannel {
     FlutterEventChannel *_eventChannel;

@@ -1,5 +1,5 @@
-#import "IndexedAudioSource.h"
-#import "IndexedPlayerItem.h"
+#import "./include/just_audio/IndexedAudioSource.h"
+#import "./include/just_audio/IndexedPlayerItem.h"
 #import <AVFoundation/AVFoundation.h>
 
 @implementation IndexedAudioSource {

@@ -1,4 +1,4 @@
-#import "LoadControl.h"
+#import "./include/just_audio/LoadControl.h"
 
 @implementation LoadControl
 @synthesize preferredForwardBufferDuration;

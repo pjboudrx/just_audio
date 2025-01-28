@@ -1,7 +1,7 @@
-#import "UriAudioSource.h"
-#import "IndexedAudioSource.h"
-#import "IndexedPlayerItem.h"
-#import "LoadControl.h"
+#import "./include/just_audio/UriAudioSource.h"
+#import "./include/just_audio/IndexedAudioSource.h"
+#import "./include/just_audio/IndexedPlayerItem.h"
+#import "./include/just_audio/LoadControl.h"
 #import <AVFoundation/AVFoundation.h>
 
 @implementation UriAudioSource {

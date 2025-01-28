@@ -1,7 +1,7 @@
-#import "AudioSource.h"
-#import "ClippingAudioSource.h"
-#import "IndexedPlayerItem.h"
-#import "UriAudioSource.h"
+#import "./include/just_audio/AudioSource.h"
+#import "./include/just_audio/ClippingAudioSource.h"
+#import "./include/just_audio/IndexedPlayerItem.h"
+#import "./include/just_audio/UriAudioSource.h"
 #import <AVFoundation/AVFoundation.h>
 
 @implementation ClippingAudioSource {

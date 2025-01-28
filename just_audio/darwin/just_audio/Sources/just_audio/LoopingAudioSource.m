@@ -1,5 +1,5 @@
-#import "AudioSource.h"
-#import "LoopingAudioSource.h"
+#import "./include/just_audio/AudioSource.h"
+#import "./include/just_audio/LoopingAudioSource.h"
 #import <AVFoundation/AVFoundation.h>
 
 @implementation LoopingAudioSource {

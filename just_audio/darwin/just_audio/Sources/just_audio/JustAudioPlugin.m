@@ -1,5 +1,5 @@
-#import "JustAudioPlugin.h"
-#import "AudioPlayer.h"
+#import "./include/just_audio/JustAudioPlugin.h"
+#import "./include/just_audio/AudioPlayer.h"
 #import <AVFoundation/AVFoundation.h>
 #include <TargetConditionals.h>
 
