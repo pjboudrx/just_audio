@@ -1,6 +1,10 @@
 #import "IndexedAudioSource.h"
 #import "LoadControl.h"
+#if TARGET_OS_OSX
+#import <FlutterMacOS/FlutterMacOS.h>
+#else
 #import <Flutter/Flutter.h>
+#endif
 
 @interface UriAudioSource : IndexedAudioSource
 

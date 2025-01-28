@@ -46,7 +46,9 @@ flutter:
         pluginClass: JustAudioPlugin
       ios:
         pluginClass: JustAudioPlugin
+        sharedDarwinSource: true
       macos:
         pluginClass: JustAudioPlugin
+        sharedDarwinSource: true
       web:
         default_package: just_audio_web
