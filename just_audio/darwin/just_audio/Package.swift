@@ -4,7 +4,6 @@
 import PackageDescription
 
 let package = Package(
-    // TODO: Update your plugin name.
     name: "just_audio",
     platforms: [
         .iOS("12.0"),
