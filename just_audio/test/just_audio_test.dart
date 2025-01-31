@@ -330,6 +330,22 @@ void runTests() {
     await player.dispose();
   });
 
+  test('setAllowsExternalPlayback', () async {
+    final player = AudioPlayer();
+    expect(player.allowsExternalPlayback, equals(false));
+    await player.setAllowsExternalPlayback(true);
+    expect(player.allowsExternalPlayback, equals(true));
+    await player.dispose();
+  });
+
+  test('setWebCrossOrigin', () async {
+    final player = AudioPlayer();
+    expect(player.webCrossOrigin, isNull);
+    await player.setWebCrossOrigin(WebCrossOrigin.anonymous);
+    expect(player.webCrossOrigin, equals(WebCrossOrigin.anonymous));
+    await player.dispose();
+  });
+
   test('setAndroidAudioAttributes', () async {
     final player = AudioPlayer();
     await player.setAndroidAudioAttributes(const AndroidAudioAttributes());
@@ -1371,7 +1387,52 @@ void runTests() {
       expect(band.upperFrequency, equals((i + 1) * 1000));
       expect(band.centerFrequency, equals((i + 0.5) * 1000));
       expect(band.gain, equals(i * 0.1));
+      final newGain = i * 0.2;
+      await band.setGain(newGain);
+      expect(band.gain, equals(newGain));
     }
+    await player.stop();
+    await player.load();
+    expect(equalizer.enabled, equals(true));
+    expect(parameters.minDecibels, equals(0.0));
+    expect(parameters.maxDecibels, equals(10.0));
+    expect(bands.length, equals(5));
+    for (var i = 0; i < 5; i++) {
+      final band = bands[i];
+      expect(band.index, equals(i));
+      expect(band.lowerFrequency, equals(i * 1000));
+      expect(band.upperFrequency, equals((i + 1) * 1000));
+      expect(band.centerFrequency, equals((i + 0.5) * 1000));
+      expect(band.gain, equals(i * 0.2));
+    }
+  });
+
+  test('asyncMessages', () async {
+    final player = AudioPlayer();
+    await player.setUrl('https://foo.foo/foo.mp3');
+    final platform = mock.mostRecentPlayer!;
+    expect(player.playing, equals(false));
+    expect(player.volume, equals(1.0));
+    expect(player.speed, equals(1.0));
+    expect(player.pitch, equals(1.0));
+    expect(player.loopMode, LoopMode.off);
+    expect(player.shuffleModeEnabled, equals(false));
+    platform._broadcastDataMessage(PlayerDataMessage(
+      playing: true,
+      volume: 0.7,
+      speed: 0.8,
+      pitch: 0.9,
+      loopMode: LoopModeMessage.all,
+      shuffleMode: ShuffleModeMessage.all,
+    ));
+    await Future<void>.delayed(Duration.zero);
+    expect(player.playing, equals(true));
+    expect(player.volume, equals(0.7));
+    expect(player.speed, equals(0.8));
+    expect(player.pitch, equals(0.9));
+    expect(player.loopMode, equals(LoopMode.all));
+    expect(player.shuffleModeEnabled, equals(true));
+    await player.dispose();
   });
 }
 
@@ -1447,6 +1508,7 @@ final icyMetadataMessage = IcyMetadataMessage(
 
 class MockAudioPlayer extends AudioPlayerPlatform {
   final eventController = StreamController<PlaybackEventMessage>();
+  final dataMessageController = StreamController<PlayerDataMessage>();
   final AudioLoadConfigurationMessage? audioLoadConfiguration;
   AudioSourceMessage? _audioSource;
   ProcessingStateMessage _processingState = ProcessingStateMessage.idle;
@@ -1467,11 +1529,15 @@ class MockAudioPlayer extends AudioPlayerPlatform {
 
   @override
   Stream<PlayerDataMessage> get playerDataMessageStream =>
-      StreamController<PlayerDataMessage>().stream;
+      dataMessageController.stream;
 
   @override
   Stream<PlaybackEventMessage> get playbackEventMessageStream =>
       eventController.stream;
+
+  void _broadcastDataMessage(PlayerDataMessage message) {
+    dataMessageController.add(message);
+  }
 
   @override
   Future<LoadResponse> load(LoadRequest request) async {
@@ -1700,6 +1766,12 @@ class MockAudioPlayer extends AudioPlayerPlatform {
   Future<SetPreferredPeakBitRateResponse> setPreferredPeakBitRate(
       SetPreferredPeakBitRateRequest request) async {
     return SetPreferredPeakBitRateResponse();
+  }
+
+  @override
+  Future<SetAllowsExternalPlaybackResponse> setAllowsExternalPlayback(
+      SetAllowsExternalPlaybackRequest request) async {
+    return SetAllowsExternalPlaybackResponse();
   }
 
   @override
