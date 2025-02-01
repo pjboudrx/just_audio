@@ -179,11 +179,6 @@ class Html5AudioPlayer extends JustAudioPlayer {
     return orderInv;
   }
 
-  /// Sets a specific device output id, null for default
-  Future<void> setWebSinkId(String? sinkId) async {
-    await _audioElement.setSinkId(sinkId ?? '').toDart;
-  }
-
   /// Called when playback reaches the end of an item.
   Future<void> onEnded() async {
     if (_loopMode == LoopModeMessage.one) {
@@ -362,6 +357,13 @@ class Html5AudioPlayer extends JustAudioPlayer {
       WebCrossOriginMessage.useCredentials: 'use-credentials',
     }[request.crossOrigin];
     return SetWebCrossOriginResponse();
+  }
+
+  /// Sets a specific device output id, null for default
+  @override
+  Future<SetWebSinkIdResponse> setWebSinkId(SetWebSinkIdRequest request) async {
+    await _audioElement.setSinkId(request.sinkId).toDart;
+    return SetWebSinkIdResponse();
   }
 
   @override

@@ -76,11 +76,6 @@ abstract class AudioPlayerPlatform {
   Stream<PlayerDataMessage> get playerDataMessageStream =>
       const Stream<PlayerDataMessage>.empty();
 
-  /// Sets a specific device output id, null for default
-  Future<void> setWebSinkId(String? sinkId) {
-    throw UnimplementedError("setWebSinkId() has not been implemented.");
-  }
-
   /// Loads an audio source.
   Future<LoadResponse> load(LoadRequest request) {
     throw UnimplementedError("load() has not been implemented.");
@@ -240,6 +235,11 @@ abstract class AudioPlayerPlatform {
   Future<SetWebCrossOriginResponse> setWebCrossOrigin(
       SetWebCrossOriginRequest request) {
     throw UnimplementedError("setWebCrossOrigin() has not been implemented.");
+  }
+
+  /// Sets a specific device output id on the web audio element.
+  Future<SetWebSinkIdResponse> setWebSinkId(SetWebSinkIdRequest request) {
+    throw UnimplementedError("setWebSinkId() has not been implemented.");
   }
 }
 
@@ -1506,3 +1506,11 @@ class SetWebCrossOriginRequest {
 class SetWebCrossOriginResponse {}
 
 enum WebCrossOriginMessage { anonymous, useCredentials }
+
+class SetWebSinkIdRequest {
+  final String sinkId;
+
+  SetWebSinkIdRequest({required this.sinkId});
+}
+
+class SetWebSinkIdResponse {}
