@@ -144,6 +144,7 @@ class AudioPlayer {
   bool _platformLoading = false;
   AndroidAudioAttributes? _androidAudioAttributes;
   WebCrossOrigin? _webCrossOrigin;
+  String _webSinkId = '';
   final bool _androidApplyAudioAttributes;
   final bool _handleAudioSessionActivation;
 
@@ -579,6 +580,9 @@ class AudioPlayer {
   /// The `crossorigin` attribute set the `<audio>` element backing this player
   /// instance on web.
   WebCrossOrigin? get webCrossOrigin => _webCrossOrigin;
+
+  /// The current sink ID of the `<audio>` element backing this instance on web.
+  String get webSinkId => _webSinkId;
 
   /// The current position of the player.
   Duration get position => _getPositionFor(_playbackEvent);
@@ -1234,6 +1238,16 @@ class AudioPlayer {
     _webCrossOrigin = webCrossOrigin;
   }
 
+  /// Sets a specific device output id on Web.
+  Future<void> setWebSinkId(String webSinkId) async {
+    if (_disposed) return;
+    if (!kIsWeb && !_isUnitTest()) return;
+
+    await (await _platform)
+        .setWebSinkId(SetWebSinkIdRequest(sinkId: webSinkId));
+    _webSinkId = webSinkId;
+  }
+
   /// Release all resources associated with this player. You must invoke this
   /// after you are done with the player.
   Future<void> dispose() async {
@@ -1487,10 +1501,17 @@ class AudioPlayer {
                 ? ShuffleModeMessage.all
                 : ShuffleModeMessage.none));
         if (checkInterruption()) return platform;
-        if (kIsWeb && _webCrossOrigin != null) {
-          await platform.setWebCrossOrigin(SetWebCrossOriginRequest(
-            crossOrigin: WebCrossOriginMessage.values[_webCrossOrigin!.index],
-          ));
+        if (kIsWeb) {
+          if (_webCrossOrigin != null) {
+            await platform.setWebCrossOrigin(SetWebCrossOriginRequest(
+              crossOrigin: WebCrossOriginMessage.values[_webCrossOrigin!.index],
+            ));
+          }
+          if (_webSinkId != '') {
+            await platform.setWebSinkId(SetWebSinkIdRequest(
+              sinkId: _webSinkId,
+            ));
+          }
         }
         for (var audioEffect in _audioPipeline._audioEffects) {
           await audioEffect._activate(platform);
@@ -3645,6 +3666,11 @@ class _IdleAudioPlayer extends AudioPlayerPlatform {
   Future<SetWebCrossOriginResponse> setWebCrossOrigin(
       SetWebCrossOriginRequest request) async {
     return SetWebCrossOriginResponse();
+  }
+
+  @override
+  Future<SetWebSinkIdResponse> setWebSinkId(SetWebSinkIdRequest request) async {
+    return SetWebSinkIdResponse();
   }
 
   @override
