@@ -1,3 +1,7 @@
+## 0.9.46
+
+* Fix SwiftPM support on macOS.
+
 ## 0.9.45
 
 * Add setWebSinkId for web (@dganzella).
