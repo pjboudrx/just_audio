@@ -65,21 +65,16 @@ await player.setClip(); // Clear clip region
 
 ```dart
 // Define the playlist
-final playlist = ConcatenatingAudioSource(
-  // Start loading next item just before reaching it
-  useLazyPreparation: true,
-  // Customise the shuffle algorithm
-  shuffleOrder: DefaultShuffleOrder(),
-  // Specify the playlist items
-  children: [
-    AudioSource.uri(Uri.parse('https://example.com/track1.mp3')),
-    AudioSource.uri(Uri.parse('https://example.com/track2.mp3')),
-    AudioSource.uri(Uri.parse('https://example.com/track3.mp3')),
-  ],
+final playlist = <AudioSource>[
+  AudioSource.uri(Uri.parse('https://example.com/track1.mp3')),
+  AudioSource.uri(Uri.parse('https://example.com/track2.mp3')),
+  AudioSource.uri(Uri.parse('https://example.com/track3.mp3')),
+];
+// Load the playlist
+await player.setAudioSource(playlist, initialIndex: 0, initialPosition: Duration.zero,
+  useLazyPreparation: true,                    // Load each item just in time
+  shuffleOrder: DefaultShuffleOrder(),         // Customise the shuffle algorithm
 );
-
-// Load and play the playlist
-await player.setAudioSource(playlist, initialIndex: 0, initialPosition: Duration.zero);
 await player.seekToNext();                     // Skip to the next item
 await player.seekToPrevious();                 // Skip to the previous item
 await player.seek(Duration.zero, index: 2);    // Skip to the start of track3.mp3
@@ -87,9 +82,10 @@ await player.setLoopMode(LoopMode.all);        // Set playlist to loop (off|all|
 await player.setShuffleModeEnabled(true);      // Shuffle playlist order (true|false)
 
 // Update the playlist
-await playlist.add(newChild1);
-await playlist.insert(3, newChild2);
-await playlist.removeAt(3);
+await player.addAudioSource(newChild1);
+await player.insertAudioSource(3, newChild2);
+await player.removeAudioSourceAt(3);
+await player.moveAudioSource(2, 1);
 ```
 
 ### Working with headers
@@ -181,9 +177,9 @@ try {
   print('An error occured: $e');
 }
 
-// Catching errors during playback (e.g. lost network connection)
+// Listening to errors during playback (e.g. lost network connection)
 player.playbackEventStream.listen((event) {}, onError: (Object e, StackTrace st) {
-  if (e is PlatformException) {
+  if (e is PlayerException) {
     print('Error code: ${e.code}');
     print('Error message: ${e.message}');
     print('AudioSource index: ${e.details?["index"]}');
@@ -191,9 +187,16 @@ player.playbackEventStream.listen((event) {}, onError: (Object e, StackTrace st)
     print('An error occurred: $e');
   }
 });
-```
 
-Note: In a future release, the exception type on `playbackEventStream` will change from `PlatformException` to `PlayerException`.
+// An alternative approach to monitor the error state during playback
+player.playbackEventStream.listen((event) {
+  if (event.processingState == ProcessingState.idle && event.errorCode != null) {
+    print('Error code: ${event.code}');
+    print('Error message: ${event.message}');
+    print('AudioSource index: ${event.currentIndex}');
+  }
+});
+```
 
 ### Working with state streams
 
@@ -464,7 +467,6 @@ Please also consider pressing the thumbs up button at the top of [this page](htt
 | clip audio                     | ✅      | ✅  | ✅    | ✅  |         | ✅    |
 | playlists                      | ✅      | ✅  | ✅    | ✅  | ✅      | ✅    |
 | looping/shuffling              | ✅      | ✅  | ✅    | ✅  | ✅      | ✅    |
-| compose audio                  | ✅      | ✅  | ✅    | ✅  |         | ✅    |
 | gapless playback               | ✅      | ✅  | ✅    |     | ✅      | ✅    |
 | report player errors           | ✅      | ✅  | ✅    | ✅  | ✅      | ✅    |
 | handle phonecall interruptions | ✅      | ✅  |       |     |         |       |
@@ -501,6 +503,14 @@ This state model provides a flexible way to capture different combinations of st
 * When playback reaches the end of the audio stream, the player remains in the `playing` state with the seek bar positioned at the end of the track. No sound will be audible until the app seeks to an earlier point in the stream. Some apps may choose to display a "replay" button in place of the play/pause button at this point, which calls `seek(Duration.zero)`. When clicked, playback will automatically continue from the seek point (because it was never paused in the first place). Other apps may instead wish to listen for the `processingState == completed` event and programmatically pause and rewind the audio at that point.
 
 Apps that wish to react to both orthogonal states through a single combined stream may listen to `playerStateStream`. This stream will emit events that contain the latest value of both `playing` and `processingState`.
+
+### Exceptions to the rule
+
+The `playing` state normally changes only according to direct method calls by the app. However, there are some exceptions:
+
+* When the `hundleInterruptions` constructor parameter is `true`, just_audio will automatically pause the player whenever there is an interruption to the audio session (such as a phone call), and will in some cases resume playback when the interruption ends.
+* When just_audio_background is used and the user interacts with the media notification's play/pause buttons, these will automatically call the `play` and `pause` methods on the player.
+* When the `maxSkipsOnError` parameter is set to a positive number `N`, just_audio will automatically pause the player after encountering `N` consecutive errors in the playlist.
 
 ## Configuring the audio session
 

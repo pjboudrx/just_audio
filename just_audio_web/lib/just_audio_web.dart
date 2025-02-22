@@ -56,6 +56,8 @@ abstract class JustAudioPlayer extends AudioPlayerPlatform {
   bool _playing = false;
   int? _index;
   double _speed = 1.0;
+  int? errorCode;
+  String? errorMessage;
 
   /// Creates a platform player with the given [id].
   JustAudioPlayer({required String id}) : super(id);
@@ -88,12 +90,18 @@ abstract class JustAudioPlayer extends AudioPlayerPlatform {
       duration: getDuration(),
       currentIndex: _index,
       androidAudioSessionId: null,
+      errorCode: errorCode,
+      errorMessage: errorMessage,
     ));
   }
 
   /// Transitions to [processingState] and broadcasts a playback event.
   void transition(ProcessingStateMessage processingState) {
     _processingState = processingState;
+    if (processingState != ProcessingStateMessage.idle) {
+      errorCode = null;
+      errorMessage = null;
+    }
     broadcastPlaybackEvent();
   }
 }
@@ -116,17 +124,27 @@ class Html5AudioPlayer extends JustAudioPlayer {
         'durationchange',
         (Event event) {
           _durationCompleter?.complete();
+          _durationCompleter = null;
           broadcastPlaybackEvent();
         }.toJS);
     _audioElement.addEventListener(
         'error',
         (Event event) {
+          _eventController.addError(PlatformException(
+            code: '${_audioElement.error!.code}',
+            message: _audioElement.error!.message,
+          ));
+          errorCode = _audioElement.error!.code;
+          errorMessage = _audioElement.error!.message;
+          transition(ProcessingStateMessage.idle);
+          broadcastPlaybackEvent();
           _durationCompleter?.completeError(_audioElement.error!);
+          _durationCompleter = null;
         }.toJS);
     _audioElement.addEventListener(
         'ended',
         (Event event) {
-          _currentAudioSourcePlayer?.complete();
+          _currentAudioSourcePlayer?.complete().catchError((e, st) {});
         }.toJS);
     _audioElement.addEventListener(
         'timeupdate',
@@ -676,7 +694,7 @@ abstract class UriAudioSourcePlayer extends IndexedAudioSourcePlayer {
   @override
   Future<void> complete() async {
     _interruptPlay();
-    html5AudioPlayer.onEnded();
+    await html5AudioPlayer.onEnded().catchError((e, st) {});
   }
 
   void _interruptPlay() {
@@ -860,7 +878,7 @@ class ClippingAudioSourcePlayer extends IndexedAudioSourcePlayer {
       _completer = Completer<ClipInterruptReason>();
     }
     if (reason == ClipInterruptReason.end) {
-      html5AudioPlayer.onEnded();
+      await html5AudioPlayer.onEnded().catchError((e, st) {});
     }
     _completer = null;
   }

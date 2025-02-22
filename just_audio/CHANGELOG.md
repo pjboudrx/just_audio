@@ -1,5 +1,11 @@
-## 0.10.1
+## 0.10.0
 
+* New playlist API.
+* Deprecate ConcatenatingAudioSource - use playlist API instead.
+* Deprecate LoopingAudioSource - Use List.filled(N, source) instead.
+* Add errorCode/errorMessage to PlaybackEvent.
+* Add maxSkipsOnError constructor parameter.
+* Replace PlatformException by PlayerException in playbackEventStream errors.
 * Fix conversion between milliBel and deciBel (@Chaphasilor).
 
 ## 0.9.46
