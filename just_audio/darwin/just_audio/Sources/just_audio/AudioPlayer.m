@@ -12,6 +12,7 @@
 #include <TargetConditionals.h>
 
 #define TREADMILL_SIZE 2
+#define ERROR_ABORT 10000000
 
 // TODO: Check for and report invalid state transitions.
 // TODO: Apply Apple's guidance on seeking: https://developer.apple.com/library/archive/qa/qa1820/_index.html
@@ -43,19 +44,23 @@
     BOOL _automaticallyWaitsToMinimizeStalling;
     BOOL _allowsExternalPlayback;
     LoadControl *_loadControl;
+    BOOL _useLazyPreparation;
     BOOL _playing;
     float _speed;
     float _volume;
     BOOL _justAdvanced;
     BOOL _enqueuedAll;
     NSDictionary<NSString *, NSObject *> *_icyMetadata;
+    NSNumber *_errorCode;
+    NSString *_errorMessage;
 }
 
-- (instancetype)initWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar playerId:(NSString*)idParam loadConfiguration:(NSDictionary *)loadConfiguration {
+- (instancetype)initWithRegistrar:(NSObject<FlutterPluginRegistrar> *)registrar playerId:(NSString*)idParam loadConfiguration:(NSDictionary *)loadConfiguration useLazyPreparation:(BOOL)useLazyPreparation {
     self = [super init];
     NSAssert(self, @"super init cannot be nil");
     _registrar = registrar;
     _playerId = idParam;
+    _useLazyPreparation = useLazyPreparation;
     _methodChannel =
         [FlutterMethodChannel methodChannelWithName:[NSMutableString stringWithFormat:@"com.ryanheise.just_audio.methods.%@", _playerId]
                                     binaryMessenger:[registrar messenger]];
@@ -66,8 +71,8 @@
         initWithName:[NSMutableString stringWithFormat:@"com.ryanheise.just_audio.data.%@", _playerId]
            messenger:[registrar messenger]];
     _index = 0;
-    _processingState = none;
-    _loopMode = loopOff;
+    _processingState = psIdle;
+    _loopMode = lmLoopOff;
     _shuffleModeEnabled = NO;
     _player = nil;
     _audioSource = nil;
@@ -108,6 +113,8 @@
     _justAdvanced = NO;
     _enqueuedAll = NO;
     _icyMetadata = @{};
+    _errorCode = (NSNumber *)[NSNull null];
+    _errorMessage = (NSString *)[NSNull null];
     __weak __typeof__(self) weakSelf = self;
     [_methodChannel setMethodCallHandler:^(FlutterMethodCall* call, FlutterResult result) {
         [weakSelf handleMethodCall:call result:result];
@@ -117,6 +124,7 @@
 
 - (void)handleMethodCall:(FlutterMethodCall*)call result:(FlutterResult)result {
     @try {
+        //NSLog(@"method: %@ index=%d", call.method, _index);
         NSDictionary *request = (NSDictionary *)call.arguments;
         if ([@"load" isEqualToString:call.method]) {
             CMTime initialPosition = request[@"initialPosition"] == (id)[NSNull null] ? kCMTimeInvalid : CMTimeMake([request[@"initialPosition"] longLongValue], 1000000);
@@ -290,9 +298,9 @@
 }
 
 - (void)checkForDiscontinuity {
-    if (!_playing || CMTIME_IS_VALID(_seekPos) || _processingState == completed) return;
+    if (!_playing || CMTIME_IS_VALID(_seekPos) || _processingState == psCompleted) return;
     int position = [self getCurrentPosition];
-    if (_processingState == buffering) {
+    if (_processingState == psBuffering) {
         if (position > _lastPosition) {
             [self leaveBuffering:@"stall ended"];
             [self updatePosition];
@@ -318,13 +326,17 @@
 }
 
 - (void)enterBuffering:(NSString *)reason {
-    //NSLog(@"ENTER BUFFERING: %@", reason);
-    _processingState = buffering;
+    if (_processingState != psIdle) {
+        //NSLog(@"ENTER BUFFERING: %@", reason);
+        _processingState = psBuffering;
+    }
 }
 
 - (void)leaveBuffering:(NSString *)reason {
-    //NSLog(@"LEAVE BUFFERING: %@", reason);
-    _processingState = ready;
+    if (_processingState == psBuffering || _processingState == psLoading) {
+        //NSLog(@"LEAVE BUFFERING: %@", reason);
+        _processingState = psReady;
+    }
 }
 
 - (void)broadcastPlaybackEvent {
@@ -336,6 +348,8 @@
             @"icyMetadata": _icyMetadata,
             @"duration": @([self getDurationMicroseconds]),
             @"currentIndex": @(_index),
+            @"errorCode": _errorCode,
+            @"errorMessage": _errorMessage,
     }];
 }
 
@@ -354,7 +368,7 @@
 }
 
 - (int)getBufferedPosition {
-    if (_processingState == none || _processingState == loading) {
+    if (_processingState == psIdle || _processingState == psLoading) {
         return 0;
     } else if (_indexedAudioSources && _indexedAudioSources.count > 0) {
         int ms = (int)(1000 * CMTimeGetSeconds(_indexedAudioSources[_index].bufferedPosition));
@@ -366,7 +380,7 @@
 }
 
 - (int)getDuration {
-    if (_processingState == none || _processingState == loading) {
+    if (_processingState == psIdle || _processingState == psLoading) {
         return -1;
     } else if (_indexedAudioSources && _indexedAudioSources.count > 0) {
         int v = (int)(1000 * CMTimeGetSeconds(_indexedAudioSources[_index].duration));
@@ -499,6 +513,7 @@
     IndexedPlayerItem *newItem = _indexedAudioSources.count > 0 ? _indexedAudioSources[_index].playerItem : nil;
     NSArray *oldPlayerItems = [NSArray arrayWithArray:_player.items];
     // In the first pass, preserve the old and new items.
+    // TODO: preserve as much of the treadmill as possible
     for (int i = 0; i < oldPlayerItems.count; i++) {
         if (oldPlayerItems[i] == newItem) {
             // Preserve and tag new item if it is already in the queue.
@@ -525,7 +540,7 @@
 
     // Regenerate queue
     _enqueuedAll = NO;
-    if (!existingItem || _loopMode != loopOne) {
+    if (!existingItem || _loopMode != lmLoopOne) {
         _enqueuedAll = YES;
         BOOL include = NO;
         for (int i = 0; i < [_order count]; i++) {
@@ -539,7 +554,7 @@
                 }
                 //NSLog(@"inserting item %d", si);
                 [_player insertItem:_indexedAudioSources[si].playerItem afterItem:nil];
-                if (_loopMode == loopOne) {
+                if (_loopMode == lmLoopOne) {
                     // We only want one item in the queue.
                     break;
                 }
@@ -549,7 +564,7 @@
 
     // Add next loop item if we're looping
     if (_order.count > 0) {
-        if (_loopMode == loopAll && _enqueuedAll) {
+        if (_loopMode == lmLoopAll && _enqueuedAll) {
             int si = [_order[0] intValue];
             //NSLog(@"### add loop item:%d", si);
             if (!_indexedAudioSources[si].playerItem2) {
@@ -557,7 +572,7 @@
                 [self addItemObservers:_indexedAudioSources[si].playerItem2];
             }
             [_player insertItem:_indexedAudioSources[si].playerItem2 afterItem:nil];
-        } else if (_loopMode == loopOne) {
+        } else if (_loopMode == lmLoopOne) {
             //NSLog(@"### add loop item:%d", _index);
             if (!_indexedAudioSources[_index].playerItem2) {
                 [_indexedAudioSources[_index] preparePlayerItem2];
@@ -570,7 +585,7 @@
     /* NSLog(@"after reorder: _player.items.count: ", _player.items.count); */
     /* [self dumpQueue]; */
 
-    if (_processingState != loading && oldItem != newItem) {
+    if (_processingState != psLoading && oldItem != newItem) {
         // || !_player.currentItem.playbackLikelyToKeepUp;
         if (_player.currentItem.playbackBufferEmpty) {
             [self enterBuffering:@"enqueueFrom playbackBufferEmpty"];
@@ -592,12 +607,14 @@
     if (_playing) {
         [_player pause];
     }
-    if (_processingState == loading) {
+    if (_processingState == psLoading) {
         [self abortExistingConnection];
     }
     _loadResult = result;
-    _processingState = loading;
+    _processingState = psLoading;
     _index = (initialIndex != (id)[NSNull null]) ? [initialIndex intValue] : 0;
+    _errorCode = (NSNumber *)[NSNull null];
+    _errorMessage = (NSString *)[NSNull null];
     // Remove previous observers
     if (_indexedAudioSources) {
         for (int i = 0; i < [_indexedAudioSources count]; i++) {
@@ -687,19 +704,20 @@
         [_indexedAudioSources[i] attach:_player initialPos:(i == _index ? initialPosition : kCMTimeInvalid)];
     }
 
-    if (_loadResult && (_indexedAudioSources.count == 0 || !_player.currentItem ||
-            _player.currentItem.status == AVPlayerItemStatusReadyToPlay)) {
-        _processingState = ready;
-        _loadResult(@{@"duration": @([self getDurationMicroseconds])});
-        _loadResult = nil;
-    } else {
-        // We send result after the playerItem is ready in observeValueForKeyPath.
-    }
     if (_playing) {
         _player.rate = _speed;
     }
     [_player setVolume:_volume];
     [self broadcastPlaybackEvent];
+
+    if (_loadResult && (_indexedAudioSources.count == 0 || !_player.currentItem ||
+            _player.currentItem.status == AVPlayerItemStatusReadyToPlay)) {
+        _processingState = psReady;
+        _loadResult(@{@"duration": @([self getDurationMicroseconds])});
+        _loadResult = nil;
+    } else {
+        // We send result after the playerItem is ready in observeValueForKeyPath.
+    }
     /* NSLog(@"load:"); */
     /* for (int i = 0; i < [_indexedAudioSources count]; i++) { */
     /*     NSLog(@"- %@", _indexedAudioSources[i].sourceId); */
@@ -741,10 +759,10 @@
     IndexedPlayerItem *endedPlayerItem = (IndexedPlayerItem *)notification.object;
     IndexedAudioSource *endedSource = endedPlayerItem.audioSource;
 
-    if (_loopMode == loopOne) {
+    if (_loopMode == lmLoopOne) {
         [endedSource seek:kCMTimeZero];
         _justAdvanced = YES;
-    } else if (_loopMode == loopAll) {
+    } else if (_loopMode == lmLoopAll) {
         [endedSource seek:kCMTimeZero];
         _index = [_order[([_orderInv[_index] intValue] + 1) % _order.count] intValue];
         [self broadcastPlaybackEvent];
@@ -818,8 +836,10 @@
                 break;
             }
             case AVPlayerItemStatusFailed: {
-                //NSLog(@"AVPlayerItemStatusFailed");
-                [self sendErrorForItem:playerItem];
+                //NSLog(@"AVPlayerItemStatusFailed on item [%d]", [self indexForItem:playerItem]);
+                if (playerItem == _player.currentItem) {
+                    [self sendErrorForItem:playerItem];
+                }
                 break;
             }
             case AVPlayerItemStatusUnknown:
@@ -850,7 +870,6 @@
                 [self updatePosition];
                 [self broadcastPlaybackEvent];
             } else if (!playerItem.playbackBufferEmpty || playerItem.playbackBufferFull) {
-                _processingState = ready;
                 [self leaveBuffering:@"!playing, !playbackBufferEmpty || playbackBufferFull"];
                 [self updatePosition];
                 [self broadcastPlaybackEvent];
@@ -870,7 +889,7 @@
                     break;
                 case AVPlayerTimeControlStatusWaitingToPlayAtSpecifiedRate:
                     //NSLog(@"AVPlayerTimeControlStatusWaitingToPlayAtSpecifiedRate");
-                    if (_processingState != completed) {
+                    if (_processingState != psCompleted) {
                         [self enterBuffering:@"timeControlStatus"];
                         [self updatePosition];
                         [self broadcastPlaybackEvent];
@@ -886,18 +905,11 @@
             }
         }
     } else if ([keyPath isEqualToString:@"currentItem"] && _player.currentItem) {
+        //NSLog(@"currentItem -> [%d]", [self indexForItem:_player.currentItem]);
         IndexedPlayerItem *playerItem = (IndexedPlayerItem *)change[NSKeyValueChangeNewKey];
         //IndexedPlayerItem *oldPlayerItem = (IndexedPlayerItem *)change[NSKeyValueChangeOldKey];
         if (playerItem.status == AVPlayerItemStatusFailed) {
-            if ([_orderInv[_index] intValue] + 1 < [_order count]) {
-                // account for automatic move to next item
-                _index = [_order[[_orderInv[_index] intValue] + 1] intValue];
-                //NSLog(@"advance to next on error: index = %d", _index);
-                [self updateEndAction];
-                [self broadcastPlaybackEvent];
-            } else {
-                //NSLog(@"error on last item");
-            }
+            [self sendErrorForItem:playerItem];
             return;
         } else {
             int expectedIndex = [self indexForItem:playerItem];
@@ -951,10 +963,10 @@
 
         if (_justAdvanced) {
             IndexedAudioSource *audioSource = playerItem.audioSource;
-            if (_loopMode == loopOne) {
+            if (_loopMode == lmLoopOne) {
                 [audioSource flip];
                 [self enqueueFrom:_index];
-            } else if (_loopMode == loopAll) {
+            } else if (_loopMode == lmLoopAll) {
                 if (_index == [_order[0] intValue] && playerItem == audioSource.playerItem2) {
                     [audioSource flip];
                     [self enqueueFrom:_index];
@@ -980,27 +992,28 @@
 }
 
 - (void)sendErrorForItem:(IndexedPlayerItem *)playerItem {
-    FlutterError *flutterError = [FlutterError errorWithCode:[NSString stringWithFormat:@"%d", (int)playerItem.error.code]
-                                                     message:playerItem.error.localizedDescription
-                                                     details:@{@"index": @([self indexForItem:playerItem])}];
-    [self sendError:flutterError playerItem:playerItem];
+    [self sendError:@((int)playerItem.error.code) errorMessage:playerItem.error.localizedDescription playerItem:playerItem];
+    [_player removeAllItems];
 }
 
-- (void)sendError:(FlutterError *)flutterError playerItem:(IndexedPlayerItem *)playerItem {
-    //NSLog(@"sendError");
+- (void)sendError:(NSNumber *)errorCode errorMessage:(NSString *)errorMessage playerItem:(IndexedPlayerItem *)playerItem {
+    //NSLog(@"sendError (%@) %@", errorCode, errorMessage);
+    FlutterError *flutterError = [FlutterError errorWithCode:[NSString stringWithFormat:@"%@", errorCode]
+                                                     message:errorMessage
+                                                     details:playerItem != nil ? @{@"index": @([self indexForItem:playerItem])} : nil];
+    [_eventChannel sendEvent:flutterError];
+    _errorCode = errorCode;
+    _errorMessage = errorMessage;
+    _processingState = psIdle;
+    [self broadcastPlaybackEvent];
     if (_loadResult && playerItem == _player.currentItem) {
         _loadResult(flutterError);
         _loadResult = nil;
     }
-    // Broadcast all errors even if they aren't on the current item.
-    [_eventChannel sendEvent:flutterError];
 }
 
 - (void)abortExistingConnection {
-    FlutterError *flutterError = [FlutterError errorWithCode:@"abort"
-                                                     message:@"Connection aborted"
-                                                     details:nil];
-    [self sendError:flutterError playerItem:nil];
+    [self sendError:@(ERROR_ABORT) errorMessage:@"Connection aborted" playerItem:nil];
 }
 
 - (int)indexForItem:(IndexedPlayerItem *)playerItem {
@@ -1057,7 +1070,7 @@
 
 - (void)complete {
     [self updatePosition];
-    _processingState = completed;
+    _processingState = psCompleted;
     [self broadcastPlaybackEvent];
     if (_playResult) {
         //NSLog(@"PLAY FINISHED DUE TO COMPLETE");
@@ -1121,7 +1134,7 @@
     // - when the shuffle order changes. (TODO)
     // - when the shuffle mode changes.
     if (!_player) return;
-    if (_audioSource && (_loopMode != loopOff || ([_order count] > 0 && [_orderInv[_index] intValue] + 1 < [_order count]))) {
+    if (_audioSource && (_loopMode != lmLoopOff || ([_order count] > 0 && [_orderInv[_index] intValue] + 1 < [_order count]))) {
         _player.actionAtItemEnd = AVPlayerActionAtItemEndAdvance;
     } else {
         _player.actionAtItemEnd = AVPlayerActionAtItemEndPause; // AVPlayerActionAtItemEndNone
@@ -1191,7 +1204,7 @@
 }
 
 - (void)seek:(CMTime)position index:(NSNumber *)newIndex completionHandler:(void (^)(BOOL))completionHandler {
-    if (_processingState == none || _processingState == loading) {
+    if (_processingState == psIdle || _processingState == psLoading) {
         if (completionHandler) {
             completionHandler(NO);
         }
@@ -1313,7 +1326,7 @@
                     [self leaveBuffering:@"seek finished, !playbackBufferEmpty"];
                 }
                 [self updatePosition];
-                if (self->_processingState != buffering) {
+                if (self->_processingState != psBuffering) {
                     [self broadcastPlaybackEvent];
                 }
             }
@@ -1328,7 +1341,7 @@
 
 - (void)dispose:(BOOL)calledFromDealloc {
     if (!_player) return;
-    if (_processingState != none) {
+    if (_processingState != psIdle) {
         [_player pause];
 
         [self updatePosition];
@@ -1341,7 +1354,7 @@
             _playResult = nil;
         }
 
-        _processingState = none;
+        _processingState = psIdle;
         // If used just before destroying the current FlutterEngine, this will result in:
         // NSInternalInconsistencyException: 'Sending a message before the FlutterEngine has been run.'
         //[self broadcastPlaybackEvent];

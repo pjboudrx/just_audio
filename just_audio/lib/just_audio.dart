@@ -55,6 +55,8 @@ JustAudioPlatform get _pluginPlatform {
 /// You must call [stop] or [dispose] to release the resources used by this
 /// player, including any temporary files created to cache assets.
 class AudioPlayer {
+  static String _generateId() => _uuid.v4();
+
   /// The user agent to set on all HTTP requests.
   final String? _userAgent;
 
@@ -106,7 +108,7 @@ class AudioPlayer {
   StreamSubscription<void>? _errorsSubscription;
   StreamSubscription<void>? _errorsResetSubscription;
 
-  final String _id;
+  String? _id;
   final _proxy = _ProxyHttpServer();
   // ignore: deprecated_member_use_from_same_package
   final ConcatenatingAudioSource _playlist;
@@ -234,7 +236,7 @@ class AudioPlayer {
     bool useLazyPreparation = true,
     ShuffleOrder? shuffleOrder,
     int maxSkipsOnError = 0,
-  })  : _id = _uuid.v4(),
+  })  : _id = _generateId(),
         _userAgent = userAgent,
         _androidApplyAudioAttributes =
             androidApplyAudioAttributes && _isAndroid(),
@@ -397,15 +399,14 @@ class AudioPlayer {
     if (maxSkipsOnError > 0) {
       var consecutiveErrorCount = 0;
       _errorsSubscription = playbackEventStream
-          .where(
-              (event) => event.errorCode != null || event.errorMessage != null)
           .map((event) => (
                 code: event.errorCode,
                 message: event.errorMessage,
                 index: event.currentIndex
               ))
           .distinct()
-          .listen((error) {
+          .where((error) => error.code != null || error.message != null)
+          .listen((error) async {
         if (audioSources.length > 1 &&
             consecutiveErrorCount < maxSkipsOnError &&
             hasNext) {
@@ -1414,6 +1415,11 @@ class AudioPlayer {
     await _loopModeSubject.close();
     await _shuffleModeEnabledSubject.close();
     await _shuffleModeEnabledSubject.close();
+
+    if (playbackEvent.processingState != ProcessingState.idle) {
+      _playbackEventSubject
+          .add(playbackEvent.copyWith(processingState: ProcessingState.idle));
+    }
   }
 
   /// Switches to using the native platform when [active] is `true` and using the
@@ -1497,6 +1503,8 @@ class AudioPlayer {
               shuffleModeEnabled:
                   message.shuffleMode != ShuffleModeMessage.none));
         }
+      }, onDone: () {
+        _playerDataSubscription = null;
       });
       _playbackEventSubscription =
           platform.playbackEventMessageStream.listen((message) {
@@ -1549,20 +1557,26 @@ class AudioPlayer {
     }
 
     Future<AudioPlayerPlatform> setPlatform() async {
+      // We need to cancel before calling _disposePlatform in order to prevent a
+      // MissingPluginException. This also means there will potentially be
+      // unconsumed events which will unfortunately appear when spinning up a
+      // new platform player. For now, we change the player ID to avoid wires
+      // getting crossed, although it would be better to find a way to flush the
+      // event channel and keep the same ID.
+      await _playbackEventSubscription?.cancel();
+      await _playerDataSubscription?.cancel();
       if (!force) {
         final oldPlatform = _platformValue!;
         if (oldPlatform is! _IdleAudioPlayer) {
           await _disposePlatform(oldPlatform);
         }
       }
-      _playbackEventSubscription?.cancel();
-      _playerDataSubscription?.cancel();
       if (_disposed) return _platform;
       // During initialisation, we must only use this platform reference in case
       // _platform is updated again during initialisation.
       final platform = active
           ? await (_nativePlatform = _pluginPlatform.init(InitRequest(
-              id: _id,
+              id: _id = _generateId(),
               audioLoadConfiguration: _audioLoadConfiguration?._toMessage(),
               androidAudioEffects: (_isAndroid() || _isUnitTest())
                   ? _audioPipeline.androidAudioEffects
@@ -1578,7 +1592,7 @@ class AudioPlayer {
               useLazyPreparation: _playlist.useLazyPreparation,
             )))
           : (_idlePlatform = _IdleAudioPlayer(
-              id: _id,
+              id: _id = _generateId(),
               sequenceStream: sequenceStream,
               errorCode: playbackEvent.errorCode,
               errorMessage: playbackEvent.errorMessage,
@@ -1702,10 +1716,12 @@ class AudioPlayer {
     } else {
       _nativePlatform = null;
       try {
-        await _pluginPlatform.disposePlayer(DisposePlayerRequest(id: _id));
+        await _pluginPlatform.disposePlayer(DisposePlayerRequest(id: _id!));
       } catch (e) {
         // Fallback if disposePlayer hasn't been implemented.
         await platform.dispose(DisposeRequest());
+      } finally {
+        _id = null;
       }
     }
   }

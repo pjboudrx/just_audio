@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio_platform_interface/just_audio_platform_interface.dart';
 import 'package:rxdart/rxdart.dart';
+import 'package:synchronized/synchronized.dart';
 
 export 'package:audio_service/audio_service.dart' show MediaItem;
 
@@ -120,27 +121,32 @@ class _JustAudioBackgroundPlugin extends JustAudioPlatform {
   }
 
   _JustAudioPlayer? _player;
+  String? _playerId;
 
   _JustAudioBackgroundPlugin();
 
   @override
   Future<AudioPlayerPlatform> init(InitRequest request) async {
-    if (_player == null) {
-      _player = _JustAudioPlayer(initRequest: request);
-    } else if (_player!.id != request.id) {
+    if (_playerId != null) {
       throw PlatformException(
         code: "error",
         message: "just_audio_background supports only a single player instance",
       );
     }
+    _playerId = request.id;
+    _player ??= _JustAudioPlayer(initRequest: request);
     return _player!;
   }
 
   @override
   Future<DisposePlayerResponse> disposePlayer(
       DisposePlayerRequest request) async {
-    final player = _player;
-    await player?.release();
+    if (request.id == _playerId) {
+      _playerId = null;
+      final player = _player;
+      _player = null;
+      await player?.release();
+    }
     return DisposePlayerResponse();
   }
 
@@ -154,26 +160,26 @@ class _JustAudioBackgroundPlugin extends JustAudioPlatform {
   }
 }
 
+final _PlayerAudioHandler _playerAudioHandler = _PlayerAudioHandler();
+
 class _JustAudioPlayer extends AudioPlayerPlatform {
   final InitRequest initRequest;
   final eventController = StreamController<PlaybackEventMessage>.broadcast();
   final playerDataController = StreamController<PlayerDataMessage>.broadcast();
-  bool? _playing;
-  late final _PlayerAudioHandler _playerAudioHandler;
 
   _JustAudioPlayer({required this.initRequest}) : super(initRequest.id) {
-    _playerAudioHandler = _PlayerAudioHandler(initRequest);
+    eventController.onCancel = _playerAudioHandler.cancelStreamSubscriptions;
+    _playerAudioHandler._initPlayer(initRequest);
     _audioHandler.inner = _playerAudioHandler;
     _audioHandler.customEvent
         .whereType<PlaybackEventMessage>()
         .listen(eventController.add);
-    _audioHandler.playbackState.listen((playbackState) {
-      if (playbackState.playing != _playing) {
-        _playing = playbackState.playing;
-        playerDataController.add(PlayerDataMessage(
-          playing: playbackState.playing,
-        ));
-      }
+    _audioHandler.customEvent
+        .whereType<_PlayingEvent>()
+        .map((event) => event.playing)
+        .distinct()
+        .listen((playing) {
+      playerDataController.add(PlayerDataMessage(playing: playing));
     });
   }
 
@@ -338,7 +344,8 @@ class _JustAudioPlayer extends AudioPlayerPlatform {
 
 class _PlayerAudioHandler extends BaseAudioHandler
     with QueueHandler, SeekHandler {
-  final _playerCompleter = Completer<AudioPlayerPlatform>();
+  final _lock = Lock();
+  var _playerCompleter = _ValueCompleter<AudioPlayerPlatform>();
   PlaybackEventMessage _justAudioEvent = PlaybackEventMessage(
     processingState: ProcessingStateMessage.idle,
     updateTime: DateTime.now(),
@@ -370,48 +377,55 @@ class _PlayerAudioHandler extends BaseAudioHandler
       : null;
 
   List<MediaItem>? get currentQueue => queue.nvalue;
+  StreamSubscription<TrackInfo>? _trackInfoSubscription;
 
-  _PlayerAudioHandler(InitRequest initRequest) {
-    _init(initRequest);
-  }
+  Future<void> _initPlayer(InitRequest initRequest) =>
+      _lock.synchronized(() async {
+        final player = await _platform.init(initRequest);
+        _playerCompleter.complete(player);
+        final playbackEventMessageStream = player.playbackEventMessageStream;
+        _trackInfoSubscription = playbackEventMessageStream
+            .map((event) {
+              _justAudioEvent = event;
+              customEvent.add(event);
+              _broadcastState();
+              return event;
+            })
+            .map((event) => TrackInfo(event.currentIndex, event.duration))
+            .distinct()
+            .debounceTime(const Duration(milliseconds: 100))
+            .map((track) {
+              // Platform may send us a null duration on dispose, which we should
+              // ignore.
+              final currentMediaItem = this.currentMediaItem;
+              if (currentMediaItem != null) {
+                if (track.duration == null &&
+                    currentMediaItem.duration != null) {
+                  return TrackInfo(track.index, currentMediaItem.duration);
+                }
+              }
+              return track;
+            })
+            .distinct()
+            .listen((track) {
+              if (currentMediaItem != null) {
+                if (track.duration != currentMediaItem!.duration &&
+                    (index! < queue.nvalue!.length && track.duration != null)) {
+                  currentQueue![index!] =
+                      currentQueue![index!].copyWith(duration: track.duration);
+                  queue.add(currentQueue!);
+                }
+                mediaItem.add(currentMediaItem!);
+              }
+            }, onError: (Object e, [StackTrace? st]) {});
+      });
 
-  Future<void> _init(InitRequest initRequest) async {
-    final player = await _platform.init(initRequest);
-    _playerCompleter.complete(player);
-    final playbackEventMessageStream = player.playbackEventMessageStream;
-    playbackEventMessageStream.listen((event) {
-      _justAudioEvent = event;
-      _broadcastState();
-    }, onError: (Object e, [StackTrace? st]) {});
-    playbackEventMessageStream.listen(customEvent.add,
-        onError: (Object e, [StackTrace? st]) {});
-    playbackEventMessageStream
-        .map((event) => TrackInfo(event.currentIndex, event.duration))
-        .distinct()
-        .debounceTime(const Duration(milliseconds: 100))
-        .map((track) {
-          // Platform may send us a null duration on dispose, which we should
-          // ignore.
-          final currentMediaItem = this.currentMediaItem;
-          if (currentMediaItem != null) {
-            if (track.duration == null && currentMediaItem.duration != null) {
-              return TrackInfo(track.index, currentMediaItem.duration);
-            }
-          }
-          return track;
-        })
-        .distinct()
-        .listen((track) {
-          if (currentMediaItem != null) {
-            if (track.duration != currentMediaItem!.duration &&
-                (index! < queue.nvalue!.length && track.duration != null)) {
-              currentQueue![index!] =
-                  currentQueue![index!].copyWith(duration: track.duration);
-              queue.add(currentQueue!);
-            }
-            mediaItem.add(currentMediaItem!);
-          }
-        }, onError: (Object e, [StackTrace? st]) {});
+  Future<void> cancelStreamSubscriptions() async {
+    final trackInfoSubscription = _trackInfoSubscription;
+    if (trackInfoSubscription != null) {
+      _trackInfoSubscription = null;
+      await trackInfoSubscription.cancel();
+    }
   }
 
   @override
@@ -626,7 +640,7 @@ class _PlayerAudioHandler extends BaseAudioHandler
     }
     if (!_playing) {
       _updatePosition();
-      _playing = true;
+      customEvent.add(_PlayingEvent(_playing = true));
       _broadcastState();
       await (await _player).play(PlayRequest());
     }
@@ -635,7 +649,7 @@ class _PlayerAudioHandler extends BaseAudioHandler
   @override
   Future<void> pause() async {
     _updatePosition();
-    _playing = false;
+    customEvent.add(_PlayingEvent(_playing = false));
     _broadcastState();
     await (await _player).pause(PauseRequest());
   }
@@ -690,22 +704,18 @@ class _PlayerAudioHandler extends BaseAudioHandler
   }
 
   @override
-  Future<void> stop() async {
-    if (_justAudioEvent.processingState == ProcessingStateMessage.idle) {
-      return;
-    }
-    _updatePosition();
-    _playing = false;
-    _broadcastState();
-    // TODO: We should really stop listening to events here to mimic
-    // just_audio's behaviour. E.g. if stop() was called, we actually want to
-    // keep the state around even though the platform may be disposing its own
-    // state.
-    _platform.disposePlayer(DisposePlayerRequest(id: (await _player).id));
-    _justAudioEvent = _justAudioEvent.copyWith(
-      processingState: ProcessingStateMessage.idle,
-    );
-  }
+  Future<void> stop() => _lock.synchronized(() async {
+        final player = _playerCompleter.value;
+        if (player == null) return;
+        _updatePosition();
+        customEvent.add(_PlayingEvent(_playing = false));
+        _broadcastState();
+        _playerCompleter = _ValueCompleter<AudioPlayerPlatform>();
+        await _platform.disposePlayer(DisposePlayerRequest(id: player.id));
+        _justAudioEvent = _justAudioEvent.copyWith(
+          processingState: ProcessingStateMessage.idle,
+        );
+      });
 
   Duration get currentPosition {
     if (_playing &&
@@ -924,4 +934,22 @@ class TrackInfo {
 extension _ValueStreamExtension<T> on ValueStream<T> {
   /// Backwards compatible version of valueOrNull.
   T? get nvalue => hasValue ? value : null;
+}
+
+class _PlayingEvent {
+  final bool playing;
+
+  const _PlayingEvent(this.playing);
+}
+
+class _ValueCompleter<T> {
+  final _completer = Completer<T>();
+  T? value;
+
+  void complete(T value) {
+    this.value = value;
+    _completer.complete(value);
+  }
+
+  Future<T> get future => _completer.future;
 }
