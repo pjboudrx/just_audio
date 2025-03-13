@@ -164,8 +164,10 @@ final _PlayerAudioHandler _playerAudioHandler = _PlayerAudioHandler();
 
 class _JustAudioPlayer extends AudioPlayerPlatform {
   final InitRequest initRequest;
-  final eventController = StreamController<PlaybackEventMessage>.broadcast();
-  final playerDataController = StreamController<PlayerDataMessage>.broadcast();
+  final eventController =
+      StreamController<PlaybackEventMessage>.broadcast(sync: true);
+  final playerDataController =
+      StreamController<PlayerDataMessage>.broadcast(sync: true);
 
   _JustAudioPlayer({required this.initRequest}) : super(initRequest.id) {
     eventController.onCancel = _playerAudioHandler.cancelStreamSubscriptions;
@@ -368,15 +370,13 @@ class _PlayerAudioHandler extends BaseAudioHandler
   List<int> _effectiveIndicesInv = [];
 
   Future<AudioPlayerPlatform> get _player => _playerCompleter.future;
-  int? get index => _justAudioEvent.currentIndex;
-  MediaItem? get currentMediaItem => index != null &&
-          currentQueue != null &&
-          index! >= 0 &&
-          index! < currentQueue!.length
-      ? currentQueue![index!]
-      : null;
+  int? index;
+  MediaItem? get currentMediaItem =>
+      index != null && index! >= 0 && index! < currentQueue.length
+          ? currentQueue[index!]
+          : null;
 
-  List<MediaItem>? get currentQueue => queue.nvalue;
+  List<MediaItem> get currentQueue => queue.value;
   StreamSubscription<TrackInfo>? _trackInfoSubscription;
 
   Future<void> _initPlayer(InitRequest initRequest) =>
@@ -386,6 +386,7 @@ class _PlayerAudioHandler extends BaseAudioHandler
         final playbackEventMessageStream = player.playbackEventMessageStream;
         _trackInfoSubscription = playbackEventMessageStream
             .map((event) {
+              index = event.currentIndex ?? _justAudioEvent.currentIndex;
               _justAudioEvent = event;
               customEvent.add(event);
               _broadcastState();
@@ -408,12 +409,12 @@ class _PlayerAudioHandler extends BaseAudioHandler
             })
             .distinct()
             .listen((track) {
-              if (currentMediaItem != null) {
+              if (currentMediaItem != null && index != null) {
                 if (track.duration != currentMediaItem!.duration &&
                     (index! < queue.nvalue!.length && track.duration != null)) {
-                  currentQueue![index!] =
-                      currentQueue![index!].copyWith(duration: track.duration);
-                  queue.add(currentQueue!);
+                  currentQueue[index!] =
+                      currentQueue[index!].copyWith(duration: track.duration);
+                  queue.add(currentQueue);
                 }
                 mediaItem.add(currentMediaItem!);
               }
@@ -592,22 +593,23 @@ class _PlayerAudioHandler extends BaseAudioHandler
   List<int> get effectiveIndices => _effectiveIndices;
   List<int> get shuffleIndicesInv => _shuffleIndicesInv;
   List<int> get effectiveIndicesInv => _effectiveIndicesInv;
-  int get nextIndex => getRelativeIndex(1);
-  int get previousIndex => getRelativeIndex(-1);
-  bool get hasNext => nextIndex != -1;
-  bool get hasPrevious => previousIndex != -1;
+  int? get nextIndex => getRelativeIndex(1);
+  int? get previousIndex => getRelativeIndex(-1);
+  bool get hasNext => nextIndex != null;
+  bool get hasPrevious => previousIndex != null;
 
-  int getRelativeIndex(int offset) {
-    if (_repeatMode == AudioServiceRepeatMode.one) return index!;
-    if (effectiveIndices.isEmpty) return -1;
-    if (index! >= effectiveIndicesInv.length) return -1;
+  int? getRelativeIndex(int offset) {
+    if (currentQueue.isEmpty || index == null) return null;
+    if (_repeatMode == AudioServiceRepeatMode.one) return index;
+    if (effectiveIndices.isEmpty) return null;
+    if (index! >= effectiveIndicesInv.length) return null;
     final invPos = effectiveIndicesInv[index!];
     var newInvPos = invPos + offset;
     if (newInvPos >= effectiveIndices.length || newInvPos < 0) {
       if (_repeatMode == AudioServiceRepeatMode.all) {
         newInvPos %= effectiveIndices.length;
       } else {
-        return -1;
+        return null;
       }
     }
     final result = effectiveIndices[newInvPos];
@@ -622,14 +624,14 @@ class _PlayerAudioHandler extends BaseAudioHandler
   @override
   Future<void> skipToNext() async {
     if (hasNext) {
-      await skipToQueueItem(nextIndex);
+      await skipToQueueItem(nextIndex!);
     }
   }
 
   @override
   Future<void> skipToPrevious() async {
     if (hasPrevious) {
-      await skipToQueueItem(previousIndex);
+      await skipToQueueItem(previousIndex!);
     }
   }
 

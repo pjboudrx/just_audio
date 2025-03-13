@@ -50,8 +50,10 @@ class JustAudioPlugin extends JustAudioPlatform {
 
 /// The web impluementation of [AudioPlayerPlatform].
 abstract class JustAudioPlayer extends AudioPlayerPlatform {
-  final _eventController = StreamController<PlaybackEventMessage>.broadcast();
-  final _dataEventController = StreamController<PlayerDataMessage>.broadcast();
+  final _eventController =
+      StreamController<PlaybackEventMessage>.broadcast(sync: true);
+  final _dataEventController =
+      StreamController<PlayerDataMessage>.broadcast(sync: true);
   ProcessingStateMessage _processingState = ProcessingStateMessage.idle;
   bool _playing = false;
   int? _index;
@@ -137,7 +139,6 @@ class Html5AudioPlayer extends JustAudioPlayer {
           errorCode = _audioElement.error!.code;
           errorMessage = _audioElement.error!.message;
           transition(ProcessingStateMessage.idle);
-          broadcastPlaybackEvent();
           _durationCompleter?.completeError(_audioElement.error!);
           _durationCompleter = null;
         }.toJS);
