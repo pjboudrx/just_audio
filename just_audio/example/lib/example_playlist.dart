@@ -28,40 +28,59 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late AudioPlayer _player;
   static final _playlist = [
     // Remove this audio source from the Windows and Linux version because it's not supported yet
-    if (kIsWeb ||
-        ![TargetPlatform.windows, TargetPlatform.linux]
-            .contains(defaultTargetPlatform))
-      ClippingAudioSource(
-        start: const Duration(seconds: 60),
-        end: const Duration(seconds: 90),
-        child: AudioSource.uri(Uri.parse(
-            "https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3")),
+    // if (kIsWeb ||
+    //     ![TargetPlatform.windows, TargetPlatform.linux]
+    //         .contains(defaultTargetPlatform))
+    //   ClippingAudioSource(
+    //     start: const Duration(seconds: 60),
+    //     end: const Duration(seconds: 90),
+    //     child: AudioSource.uri(Uri.parse(
+    //         "https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3")),
+    //     tag: AudioMetadata(
+    //       album: "Science Friday",
+    //       title: "A Salute To Head-Scratching Science (30 seconds)",
+    //       artwork:
+    //           "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
+    //     ),
+    //   ),
+    // AudioSource.uri(
+    //   Uri.parse(
+    //       "https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3"),
+    //   tag: AudioMetadata(
+    //     album: "Science Friday",
+    //     title: "A Salute To Head-Scratching Science",
+    //     artwork:
+    //         "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
+    //   ),
+    // ),
+    // AudioSource.uri(
+    //   Uri.parse("https://s3.amazonaws.com/scifri-segments/scifri201711241.mp3"),
+    //   tag: AudioMetadata(
+    //     album: "Science Friday",
+    //     title: "From Cat Rheology To Operatic Incompetence",
+    //     artwork:
+    //         "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
+    //   ),
+    // ),
+    AudioSource.uri(
+      Uri.parse("asset:///audio/nature.mp3"),
+      tag: AudioMetadata(
+        album: "Public Domain",
+        title: "Nature Sounds",
+        artwork:
+            "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
+      ),
+    ),
+    for (var i = 1; i <= 4; i++)
+      AudioSource.uri(
+        Uri.parse("https://www.ryanheise.com/whatever/whatever$i.mp3"),
         tag: AudioMetadata(
-          album: "Science Friday",
-          title: "A Salute To Head-Scratching Science (30 seconds)",
+          album: "Public Domain",
+          title: "Nature Sounds $i",
           artwork:
               "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
         ),
       ),
-    AudioSource.uri(
-      Uri.parse(
-          "https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3"),
-      tag: AudioMetadata(
-        album: "Science Friday",
-        title: "A Salute To Head-Scratching Science",
-        artwork:
-            "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
-      ),
-    ),
-    AudioSource.uri(
-      Uri.parse("https://s3.amazonaws.com/scifri-segments/scifri201711241.mp3"),
-      tag: AudioMetadata(
-        album: "Science Friday",
-        title: "From Cat Rheology To Operatic Incompetence",
-        artwork:
-            "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
-      ),
-    ),
     AudioSource.uri(
       Uri.parse("asset:///audio/nature.mp3"),
       tag: AudioMetadata(
@@ -90,8 +109,7 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
     final session = await AudioSession.instance;
     await session.configure(const AudioSessionConfiguration.speech());
     // Listen to errors during playback.
-    _player.playbackEventStream.listen((event) {},
-        onError: (Object e, StackTrace stackTrace) {
+    _player.errorStream.listen((e) {
       print('A stream error occurred: $e');
     });
     try {

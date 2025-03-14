@@ -131,6 +131,7 @@ class AudioPlayer {
       BehaviorSubject<Duration>.seeded(Duration.zero);
   final _icyMetadataSubject = BehaviorSubject<IcyMetadata?>.seeded(null);
   final _androidAudioSessionIdSubject = BehaviorSubject<int?>.seeded(null);
+  final _errorSubject = PublishSubject<PlayerException>();
 
   // independent streams
   final _playingSubject = BehaviorSubject.seeded(false);
@@ -257,22 +258,14 @@ class AudioPlayer {
       _automaticallyWaitsToMinimizeStalling = _audioLoadConfiguration!
           .darwinLoadControl!.automaticallyWaitsToMinimizeStalling;
     }
-    _durationSubject.addStream(playbackEventStream
-        .map((event) => event.duration)
-        .distinct()
-        .handleError((Object err, StackTrace stackTrace) {/* noop */}));
-    _processingStateSubject.addStream(playbackEventStream
-        .map((event) => event.processingState)
-        .distinct()
-        .handleError((Object err, StackTrace stackTrace) {/* noop */}));
-    _bufferedPositionSubject.addStream(playbackEventStream
-        .map((event) => event.bufferedPosition)
-        .distinct()
-        .handleError((Object err, StackTrace stackTrace) {/* noop */}));
-    _icyMetadataSubject.addStream(playbackEventStream
-        .map((event) => event.icyMetadata)
-        .distinct()
-        .handleError((Object err, StackTrace stackTrace) {/* noop */}));
+    _durationSubject.addStream(
+        playbackEventStream.map((event) => event.duration).distinct());
+    _processingStateSubject.addStream(
+        playbackEventStream.map((event) => event.processingState).distinct());
+    _bufferedPositionSubject.addStream(
+        playbackEventStream.map((event) => event.bufferedPosition).distinct());
+    _icyMetadataSubject.addStream(
+        playbackEventStream.map((event) => event.icyMetadata).distinct());
     _positionDiscontinuitySubscription = playbackEventStream
         .map((event) => (
               event,
@@ -309,11 +302,11 @@ class AudioPlayer {
         _positionDiscontinuitySubject.add(PositionDiscontinuity(
             PositionDiscontinuityReason.autoAdvance, prevEvent, currEvent));
       }
-    }, onError: (Object e, StackTrace st) {});
+    });
     _currentIndexSubscription = playbackEventStream.listen(
-        (event) => _sequenceStateSubject
-            .add(sequenceState.copyWith(currentIndex: event.currentIndex)),
-        onError: (Object e, StackTrace st) {});
+      (event) => _sequenceStateSubject
+          .add(sequenceState.copyWith(currentIndex: event.currentIndex)),
+    );
     _currentIndexSubject.addStream(
         sequenceStateStream.map((sequenceState) => sequenceState.currentIndex));
     _sequenceSubject.addStream(
@@ -327,15 +320,24 @@ class AudioPlayer {
 
     _androidAudioSessionIdSubject.addStream(playbackEventStream
         .map((event) => event.androidAudioSessionId)
+        .distinct());
+
+    _errorSubject.addStream(playbackEventStream
+        .map((event) => (
+              code: event.errorCode,
+              message: event.errorMessage,
+              index: event.currentIndex,
+            ))
         .distinct()
-        .handleError((Object err, StackTrace stackTrace) {/* noop */}));
+        .where((error) => error.code != null)
+        .map((error) =>
+            PlayerException(error.code!, error.message, error.index)));
     _playerStateSubject.addStream(
         Rx.combineLatest2<bool, PlaybackEvent, PlayerState>(
                 playingStream,
                 playbackEventStream,
                 (playing, event) => PlayerState(playing, event.processingState))
-            .distinct()
-            .handleError((Object err, StackTrace stackTrace) {/* noop */}));
+            .distinct());
     _setPlatformActive(false, force: true)
         ?.catchError((dynamic e) async => null);
     // Respond to changes to AndroidAudioAttributes configuration.
@@ -398,15 +400,7 @@ class AudioPlayer {
     }
     if (maxSkipsOnError > 0) {
       var consecutiveErrorCount = 0;
-      _errorsSubscription = playbackEventStream
-          .map((event) => (
-                code: event.errorCode,
-                message: event.errorMessage,
-                index: event.currentIndex
-              ))
-          .distinct()
-          .where((error) => error.code != null || error.message != null)
-          .listen((error) async {
+      _errorsSubscription = errorStream.listen((error) async {
         if (audioSources.length > 1 &&
             consecutiveErrorCount < maxSkipsOnError &&
             hasNext) {
@@ -415,7 +409,7 @@ class AudioPlayer {
         } else {
           scheduleMicrotask(() => pause().catchError((e, st) {}));
         }
-      }, onError: (Object e, StackTrace st) {});
+      });
       _errorsResetSubscription = processingStateStream.listen((state) {
         if (state == ProcessingState.ready && consecutiveErrorCount > 0) {
           consecutiveErrorCount = 0;
@@ -619,6 +613,9 @@ class AudioPlayer {
   Stream<int?> get androidAudioSessionIdStream =>
       _androidAudioSessionIdSubject.stream;
 
+  /// A stream of errors broadcast by the player.
+  Stream<PlayerException> get errorStream => _errorSubject.stream;
+
   /// A stream broadcasting every position discontinuity.
   Stream<PositionDiscontinuity> get positionDiscontinuityStream =>
       _positionDiscontinuitySubject.stream;
@@ -736,7 +733,7 @@ class AudioPlayer {
     }, onError: (Object e, StackTrace stackTrace) {});
     playbackEventSubscription = playbackEventStream.listen((event) {
       controller.add(position);
-    }, onError: (Object e, StackTrace stackTrace) {});
+    });
     return controller.stream.distinct();
   }
 
@@ -1406,6 +1403,7 @@ class AudioPlayer {
     await _bufferedPositionSubject.close();
     await _icyMetadataSubject.close();
     await _androidAudioSessionIdSubject.close();
+    await _errorSubject.close();
     await _playerStateSubject.close();
     await _skipSilenceEnabledSubject.close();
     await _positionDiscontinuitySubject.close();
@@ -1549,11 +1547,7 @@ class AudioPlayer {
             playbackEvent.processingState == ProcessingState.idle) {
           _setPlatformActive(false)?.catchError((dynamic e) async => null);
         }
-      }, onError: (Object e, [StackTrace? st]) {
-        if (e is PlatformException) {
-          _playbackEventSubject.addError(_convertException(e), st);
-        }
-      });
+      }, onError: (Object e, [StackTrace? st]) {});
     }
 
     Future<AudioPlayerPlatform> setPlatform() async {
@@ -1733,23 +1727,25 @@ class AudioPlayer {
       await file.delete(recursive: true);
     }
   }
-}
 
-Exception _convertException(PlatformException e) {
-  const kUnknownErrorCode = 9999999;
-  const kInterruptedErrorCode = 10000000;
-  final code = int.tryParse(e.code);
-  if (code == null) {
-    if (e.code == 'abort') {
+  Exception _convertException(PlatformException e) {
+    const kUnknownErrorCode = 9999999;
+    const kInterruptedErrorCode = 10000000;
+    final details =
+        (e.details as Map<dynamic, dynamic>?)?.cast<String, dynamic>();
+    final index = details?['index'] as int? ?? currentIndex;
+    final code = int.tryParse(e.code);
+    if (code == null) {
+      if (e.code == 'abort') {
+        return PlayerInterruptedException(e.message);
+      } else {
+        return PlayerException(kUnknownErrorCode, e.message, index);
+      }
+    } else if (code == kInterruptedErrorCode) {
       return PlayerInterruptedException(e.message);
     } else {
-      return PlayerException(kUnknownErrorCode, e.message);
+      return PlayerException(code, e.message, index);
     }
-  } else if (code == kInterruptedErrorCode) {
-    return PlayerInterruptedException(e.message);
-  } else {
-    return PlayerException(code, e.message,
-        (e.details as Map<dynamic, dynamic>?)?.cast<String, dynamic>());
   }
 }
 
@@ -1766,13 +1762,10 @@ class PlayerException implements Exception {
   /// is provided.
   final String? message;
 
-  /// On Android/iOS/macOS, contains details of the error. For errors associated
-  /// with a particular audio source, the `"index"` key maps to the index of the
-  /// audio source in the sequence.
-  final Map<String, dynamic> details;
+  /// The index of the audio source associated with this error.
+  final int? index;
 
-  PlayerException(this.code, this.message, [Map<String, dynamic>? details])
-      : details = details ?? <String, dynamic>{};
+  PlayerException(this.code, this.message, this.index);
 
   @override
   String toString() => "($code) $message";
@@ -3608,13 +3601,8 @@ _ProxyHandler _proxyHandlerForSource(StreamAudioSource source) {
     }
 
     final completer = Completer<void>();
-    final subscription = stream.listen((event) {
-      request.response.add(event);
-    }, onError: (Object e, StackTrace st) {
-      source._player?._playbackEventSubject.addError(e, st);
-    }, onDone: () {
-      completer.complete();
-    });
+    final subscription = stream.listen(request.response.add,
+        onError: (e, st) {}, onDone: completer.complete);
 
     request.response.done.then((dynamic value) {
       subscription.cancel();

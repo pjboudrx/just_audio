@@ -178,23 +178,10 @@ try {
 }
 
 // Listening to errors during playback (e.g. lost network connection)
-player.playbackEventStream.listen((event) {}, onError: (Object e, StackTrace st) {
-  if (e is PlayerException) {
-    print('Error code: ${e.code}');
-    print('Error message: ${e.message}');
-    print('AudioSource index: ${e.details?["index"]}');
-  } else {
-    print('An error occurred: $e');
-  }
-});
-
-// An alternative approach to monitor the error state during playback
-player.playbackEventStream.listen((event) {
-  if (event.processingState == ProcessingState.idle && event.errorCode != null) {
-    print('Error code: ${event.code}');
-    print('Error message: ${event.message}');
-    print('AudioSource index: ${event.currentIndex}');
-  }
+player.errorStream.listen((PlayerException e) {
+  print('Error code: ${e.code}');
+  print('Error message: ${e.message}');
+  print('AudioSource index: ${e.index}');
 });
 ```
 
