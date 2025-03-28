@@ -7,6 +7,7 @@
 * Add errorCode/errorMessage to PlaybackEvent.
 * Add maxSkipsOnError constructor parameter.
 * Fix conversion between milliBel and deciBel (@Chaphasilor).
+* Bump min flutter version to 3.27.0, AGP to 8.5.2.
 
 ## 0.9.46
 
