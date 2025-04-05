@@ -8,14 +8,20 @@
 import 'dart:async';
 
 import 'package:audio_session/audio_session.dart';
-import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_example/common.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:rxdart/rxdart.dart';
 
-void main() => runApp(const MyApp());
+void main() {
+  // Initialise just_audio_media_kit for Linux/Windows.
+  JustAudioMediaKit.ensureInitialized(linux: true, windows: true);
+  // Enable gapless playback on Linux/Windows (experimental):
+  // JustAudioMediaKit.prefetchPlaylist = true;
+  runApp(const MyApp());
+}
 
 class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);
@@ -27,60 +33,37 @@ class MyApp extends StatefulWidget {
 class MyAppState extends State<MyApp> with WidgetsBindingObserver {
   late AudioPlayer _player;
   static final _playlist = [
-    // Remove this audio source from the Windows and Linux version because it's not supported yet
-    // if (kIsWeb ||
-    //     ![TargetPlatform.windows, TargetPlatform.linux]
-    //         .contains(defaultTargetPlatform))
-    //   ClippingAudioSource(
-    //     start: const Duration(seconds: 60),
-    //     end: const Duration(seconds: 90),
-    //     child: AudioSource.uri(Uri.parse(
-    //         "https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3")),
-    //     tag: AudioMetadata(
-    //       album: "Science Friday",
-    //       title: "A Salute To Head-Scratching Science (30 seconds)",
-    //       artwork:
-    //           "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
-    //     ),
-    //   ),
-    // AudioSource.uri(
-    //   Uri.parse(
-    //       "https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3"),
-    //   tag: AudioMetadata(
-    //     album: "Science Friday",
-    //     title: "A Salute To Head-Scratching Science",
-    //     artwork:
-    //         "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
-    //   ),
-    // ),
-    // AudioSource.uri(
-    //   Uri.parse("https://s3.amazonaws.com/scifri-segments/scifri201711241.mp3"),
-    //   tag: AudioMetadata(
-    //     album: "Science Friday",
-    //     title: "From Cat Rheology To Operatic Incompetence",
-    //     artwork:
-    //         "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
-    //   ),
-    // ),
-    AudioSource.uri(
-      Uri.parse("asset:///audio/nature.mp3"),
+    ClippingAudioSource(
+      start: const Duration(seconds: 60),
+      end: const Duration(seconds: 90),
+      child: AudioSource.uri(Uri.parse(
+          "https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3")),
       tag: AudioMetadata(
-        album: "Public Domain",
-        title: "Nature Sounds",
+        album: "Science Friday",
+        title: "A Salute To Head-Scratching Science (30 seconds)",
         artwork:
             "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
       ),
     ),
-    for (var i = 1; i <= 4; i++)
-      AudioSource.uri(
-        Uri.parse("https://www.ryanheise.com/whatever/whatever$i.mp3"),
-        tag: AudioMetadata(
-          album: "Public Domain",
-          title: "Nature Sounds $i",
-          artwork:
-              "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
-        ),
+    AudioSource.uri(
+      Uri.parse(
+          "https://s3.amazonaws.com/scifri-episodes/scifri20181123-episode.mp3"),
+      tag: AudioMetadata(
+        album: "Science Friday",
+        title: "A Salute To Head-Scratching Science",
+        artwork:
+            "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
       ),
+    ),
+    AudioSource.uri(
+      Uri.parse("https://s3.amazonaws.com/scifri-segments/scifri201711241.mp3"),
+      tag: AudioMetadata(
+        album: "Science Friday",
+        title: "From Cat Rheology To Operatic Incompetence",
+        artwork:
+            "https://media.wnyc.org/i/1400/1400/l/80/1/ScienceFriday_WNYCStudios_1400.jpg",
+      ),
+    ),
     AudioSource.uri(
       Uri.parse("asset:///audio/nature.mp3"),
       tag: AudioMetadata(
@@ -113,9 +96,7 @@ class MyAppState extends State<MyApp> with WidgetsBindingObserver {
       print('A stream error occurred: $e');
     });
     try {
-      // Preloading audio is not currently supported on Linux.
-      await _player.setAudioSources(_playlist,
-          preload: kIsWeb || defaultTargetPlatform != TargetPlatform.linux);
+      await _player.setAudioSources(_playlist);
     } on PlayerException catch (e) {
       // Catch load errors: 404, invalid url...
       print("Error loading playlist: $e");

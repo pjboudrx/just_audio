@@ -10,9 +10,14 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:just_audio/just_audio.dart';
 import 'package:just_audio_example/common.dart';
+import 'package:just_audio_media_kit/just_audio_media_kit.dart';
 import 'package:rxdart/rxdart.dart';
 
-void main() => runApp(const MyApp());
+void main() {
+  // Initialise just_audio_media_kit for Linux/Windows.
+  JustAudioMediaKit.ensureInitialized(linux: true, windows: true);
+  runApp(const MyApp());
+}
 
 class MyApp extends StatefulWidget {
   const MyApp({Key? key}) : super(key: key);

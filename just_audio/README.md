@@ -23,6 +23,14 @@ await player.setVolume(0.5);                    // Half as loud
 await player.stop();                            // Stop and free resources
 ```
 
+### Migrating to 0.10.x
+
+* iOS: You may remove the compile flag `AUDIO_SESSION_MICROPHONE=0` since this is now the default.
+* Instead of `player.setAudioSource(ConcatenatingAudioSource(children: sources))` use `player.setAudioSources(sources)`.
+* Instead of `LoopingAudioSource(child: source, count: N)` use `...List.filled(N, source)`.
+* Instead of listening to `player.playbackEventStream.onError`, listen to `player.errorStream`.
+* If you would like to emulate the previous skip-on-error setting, use constructor parameter `maxSkipsOnError: 6`.
+
 ### Working with multiple players
 
 ```dart
@@ -71,7 +79,7 @@ final playlist = <AudioSource>[
   AudioSource.uri(Uri.parse('https://example.com/track3.mp3')),
 ];
 // Load the playlist
-await player.setAudioSource(playlist, initialIndex: 0, initialPosition: Duration.zero,
+await player.setAudioSources(playlist, initialIndex: 0, initialPosition: Duration.zero,
   useLazyPreparation: true,                    // Load each item just in time
   shuffleOrder: DefaultShuffleOrder(),         // Customise the shuffle algorithm
 );
@@ -281,52 +289,6 @@ If you wish to connect to non-HTTPS URLs, or if you use a feature that depends o
 </dict>
 ```
 
-Using the default configuration, the App Store will detect that your app uses the AVAudioSession API which includes a microphone API, and for privacy reasons it will ask you to describe your app's usage of the microphone. If your app does indeed use the microphone, you can describe your usage by editing the `Info.plist` file as follows:
-
-```xml
-<key>NSMicrophoneUsageDescription</key>
-<string>... explain why the app uses the microphone here ...</string>
-```
-
-But if your app doesn't use the microphone, you can pass a build option to "compile out" any microphone code so that the App Store won't ask for the above usage description. This can be done with either CocoaPods or SwiftPM builds.
-
-#### CocoaPods
-
-Edit your `ios/Podfile` as follows:
-
-```ruby
-post_install do |installer|
-  installer.pods_project.targets.each do |target|
-    flutter_additional_ios_build_settings(target)
-    
-    # ADD THE NEXT SECTION
-    target.build_configurations.each do |config|
-      config.build_settings['GCC_PREPROCESSOR_DEFINITIONS'] ||= [
-        '$(inherited)',
-        'AUDIO_SESSION_MICROPHONE=0'
-      ]
-    end
-    
-  end
-end
-```
-
-#### SwiftPM
-
-Run `flutter clean` to force SwiftPM to pick up your new settings:
-
-```
-flutter clean
-```
-
-Export the environment variable `AUDIO_SESSION_MICROPHONE=0` before running your build command. E.g. Using the bash command line:
-
-```
-AUDIO_SESSION_MICROPHONE=0 flutter run
-```
-
-Note: `flutter clean` is needed whenever the value of `AUDIO_SESSION_MICROPHONE` changes, or whenever you switch between different projects that use audio_session with different `AUDIO_SESSION_MICROPHONE` values.
-
 ### macOS
 
 To allow your macOS application to access audio files on the Internet, add the following to your `DebugProfile.entitlements` and `Release.entitlements` files:
@@ -352,6 +314,7 @@ The macOS player relies on server headers (e.g. `Content-Type`, `Content-Length`
 
 Windows support is enabled by adding an additional dependency to your `pubspec.yaml` alongside `just_audio`. There are a number of alternative options:
 
+* [just_audio_media_kit](https://pub.dev/packages/just_audio_media_kit)
 * [just_audio_windows](https://pub.dev/packages/just_audio_windows)
 * [just_audio_libwinmedia](https://pub.dev/packages/just_audio_libwinmedia)
 
@@ -360,7 +323,8 @@ Example:
 ```yaml
 dependencies:
   just_audio: any # substitute version number
-  just_audio_windows: any # substitute version number
+  just_audio_media_kit: any # substitute version number
+  media_kit_libs_windows_audio: any # substitute version number
 ```
 
 For issues with the Windows implementation, please open an issue on the respective implementation's GitHub issues page.
@@ -369,13 +333,14 @@ For issues with the Windows implementation, please open an issue on the respecti
 
 Linux support is enabled by adding an additional dependency to your `pubspec.yaml` alongside `just_audio`. There are a number of alternative options:
 
-* [just_audio_mpv](https://pub.dev/packages/just_audio_mpv)
+* [just_audio_media_kit](https://pub.dev/packages/just_audio_media_kit)
 * [just_audio_libwinmedia](https://pub.dev/packages/just_audio_libwinmedia) (untested)
 
 ```yaml
 dependencies:
   just_audio: any # substitute version number
-  just_audio_mpv: any # substitute version number
+  just_audio_media_kit: any # substitute version number
+  media_kit_libs_linux: any # substitute version number
 ```
 
 For issues with the Linux implementation, please open an issue on the respective implementation's GitHub issues page.
@@ -451,17 +416,17 @@ Please also consider pressing the thumbs up button at the top of [this page](htt
 | buffer status/position         | ✅      | ✅  | ✅    | ✅  | ✅      | ✅    |
 | play/pause/seek                | ✅      | ✅  | ✅    | ✅  | ✅      | ✅    |
 | set volume/speed               | ✅      | ✅  | ✅    | ✅  | ✅      | ✅    |
-| clip audio                     | ✅      | ✅  | ✅    | ✅  |         | ✅    |
+| clip audio                     | ✅      | ✅  | ✅    | ✅  | ✅      | ✅    |
 | playlists                      | ✅      | ✅  | ✅    | ✅  | ✅      | ✅    |
 | looping/shuffling              | ✅      | ✅  | ✅    | ✅  | ✅      | ✅    |
 | gapless playback               | ✅      | ✅  | ✅    |     | ✅      | ✅    |
 | report player errors           | ✅      | ✅  | ✅    | ✅  | ✅      | ✅    |
 | handle phonecall interruptions | ✅      | ✅  |       |     |         |       |
-| buffering/loading options      | ✅      | ✅  | ✅    |     |         |       |
+| buffering/loading options      | ✅      | ✅  | ✅    |     | ✅      | ✅    |
 | set pitch                      | ✅      |     |       |     |         |       |
 | skip silence                   | ✅      |     |       |     |         |       |
-| equalizer                      | ✅      |     |       |     |         | ✅    |
-| volume boost                   | ✅      |     |       |     |         | ✅    |
+| equalizer                      | ✅      |     |       |     |         |       |
+| volume boost                   | ✅      |     |       |     |         |       |
 
 (*): While request headers cannot be set directly on Web, cookies can be used to send information in the [Cookie header](https://developer.mozilla.org/en-US/docs/Web/HTTP/Headers/Cookie). See also `AudioPlayer.setWebCrossOrigin` to allow sending cookies when loading audio files from the same origin or a different origin.
 
