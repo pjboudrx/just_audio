@@ -1557,8 +1557,18 @@ class AudioPlayer {
       // new platform player. For now, we change the player ID to avoid wires
       // getting crossed, although it would be better to find a way to flush the
       // event channel and keep the same ID.
-      await _playbackEventSubscription?.cancel();
-      await _playerDataSubscription?.cancel();
+
+      // Strangely, this throws "Cannot complete a future with itself" when
+      // _playbackEventSubscription==null under flutter test.
+      // await _playbackEventSubscription?.cancel();
+      // await _playerDataSubscription?.cancel();
+      if (_playbackEventSubscription != null) {
+        await _playbackEventSubscription!.cancel();
+      }
+      if (_playerDataSubscription != null) {
+        await _playerDataSubscription!.cancel();
+      }
+
       if (!force) {
         final oldPlatform = _platformValue!;
         if (oldPlatform is! _IdleAudioPlayer) {
