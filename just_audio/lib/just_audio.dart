@@ -279,7 +279,7 @@ class AudioPlayer {
         .pairwise()
         .listen((rec) {
       if (_seeking) return;
-      final [(prevEvent, prevSource), (currEvent, currSource)] = rec;
+      final [(prevEvent, prevSource), (currEvent, currSource)] = rec.toList();
       if (prevSource == null || currSource == null) return;
       if (currSource._id != prevSource._id) {
         // If we've changed item without seeking, it must be an autoAdvance.
@@ -447,7 +447,7 @@ class AudioPlayer {
   AudioSource? get audioSource => _playlist.children.firstOrNull;
 
   /// The latest [PlaybackEvent].
-  PlaybackEvent get playbackEvent => _playbackEventSubject.value;
+  PlaybackEvent get playbackEvent => _playbackEventSubject.nvalue!;
 
   /// A stream of [PlaybackEvent]s.
   Stream<PlaybackEvent> get playbackEventStream => _playbackEventSubject.stream;
@@ -520,14 +520,14 @@ class AudioPlayer {
   Stream<PlayerState> get playerStateStream => _playerStateSubject.stream;
 
   /// The current sequence of indexed audio sources.
-  List<IndexedAudioSource> get sequence => _sequenceSubject.value;
+  List<IndexedAudioSource> get sequence => _sequenceSubject.nvalue!;
 
   /// A stream broadcasting the current sequence of indexed audio sources.
   Stream<List<IndexedAudioSource>> get sequenceStream =>
       _sequenceSubject.stream;
 
   /// The current shuffled sequence of indexed audio sources.
-  List<int> get shuffleIndices => _shuffleIndicesSubject.value;
+  List<int> get shuffleIndices => _shuffleIndicesSubject.nvalue!;
 
   /// A stream broadcasting the current shuffled sequence of indexed audio
   /// sources.
@@ -541,7 +541,7 @@ class AudioPlayer {
   Stream<int?> get currentIndexStream => _currentIndexSubject.stream;
 
   /// The current [SequenceState].
-  SequenceState get sequenceState => _sequenceStateSubject.value;
+  SequenceState get sequenceState => _sequenceStateSubject.nvalue!;
 
   /// A stream broadcasting the current [SequenceState].
   Stream<SequenceState> get sequenceStateStream => _sequenceStateSubject.stream;
