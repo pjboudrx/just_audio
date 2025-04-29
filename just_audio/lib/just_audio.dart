@@ -1068,11 +1068,11 @@ class AudioPlayer {
     // Broadcast to clients immediately, but revert to false if we fail to
     // activate the audio session. This allows setAudioSource to be aware of a
     // prior play request.
+    _playingSubject.add(true);
     _playbackEventSubject.add(playbackEvent.copyWith(
       updatePosition: position,
       updateTime: DateTime.now(),
     ));
-    _playingSubject.add(true);
     final playCompleter = Completer<dynamic>();
     final audioSession = await AudioSession.instance;
     if (!_handleAudioSessionActivation || await audioSession.setActive(true)) {
@@ -1108,11 +1108,11 @@ class AudioPlayer {
     if (!playing) return;
     _playInterrupted = false;
     // Update local state immediately so that queries aren't surprised.
+    _playingSubject.add(false);
     _playbackEventSubject.add(playbackEvent.copyWith(
       updatePosition: position,
       updateTime: DateTime.now(),
     ));
-    _playingSubject.add(false);
     // TODO: perhaps modify platform side to ensure new state is broadcast
     // before this method returns.
     await (await _platform).pause(PauseRequest());

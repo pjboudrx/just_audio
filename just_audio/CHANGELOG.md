@@ -1,3 +1,8 @@
+## 0.10.2
+
+* Fix playing/playbackEvent emission order.
+* Fix rxdart errors on lower bound rxdart 0.26.0.
+
 ## 0.10.1
 
 * Fix unhandled PlayerInterruptedException.
