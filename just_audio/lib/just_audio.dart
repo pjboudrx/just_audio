@@ -57,6 +57,7 @@ JustAudioPlatform get _pluginPlatform {
 /// player, including any temporary files created to cache assets.
 class AudioPlayer {
   static String _generateId() => _uuid.v4();
+  final _lock = Lock();
 
   /// The user agent to set on all HTTP requests.
   final String? _userAgent;
@@ -1373,61 +1374,64 @@ class AudioPlayer {
 
   /// Releases all resources associated with this player. You must invoke this
   /// after you are done with the player.
-  Future<void> dispose() async {
-    if (_disposed) return;
-    _disposed = true;
-    if (_nativePlatform != null) {
-      await _disposePlatform(await _nativePlatform!);
-      _nativePlatform = null;
-    }
-    if (_idlePlatform != null) {
-      await _disposePlatform(_idlePlatform!);
-      _idlePlatform = null;
-    }
-    _playlist.children.clear();
-    for (var s in _audioSources.values) {
-      s._dispose();
-    }
-    _audioSources.clear();
-    _proxy.stop();
-    await _playerDataSubscription?.cancel();
-    await _playbackEventSubscription?.cancel();
-    await _androidAudioAttributesSubscription?.cancel();
-    await _becomingNoisyEventSubscription?.cancel();
-    await _interruptionEventSubscription?.cancel();
-    await _positionDiscontinuitySubscription?.cancel();
-    await _currentIndexSubscription?.cancel();
-    await _errorsSubscription?.cancel();
-    await _errorsResetSubscription?.cancel();
+  Future<void> dispose() {
+    return _lock.synchronized(() async {
+      if (_disposed) return;
+      await stop();
+      _disposed = true;
+      if (_nativePlatform != null) {
+        await _disposePlatform(await _nativePlatform!);
+        _nativePlatform = null;
+      }
+      if (_idlePlatform != null) {
+        await _disposePlatform(_idlePlatform!);
+        _idlePlatform = null;
+      }
+      _playlist.children.clear();
+      for (var s in _audioSources.values) {
+        s._dispose();
+      }
+      _audioSources.clear();
+      _proxy.stop();
+      await _playerDataSubscription?.cancel();
+      await _playbackEventSubscription?.cancel();
+      await _androidAudioAttributesSubscription?.cancel();
+      await _becomingNoisyEventSubscription?.cancel();
+      await _interruptionEventSubscription?.cancel();
+      await _positionDiscontinuitySubscription?.cancel();
+      await _currentIndexSubscription?.cancel();
+      await _errorsSubscription?.cancel();
+      await _errorsResetSubscription?.cancel();
 
-    await _playbackEventSubject.close();
-    await _sequenceStateSubject.close();
-    await _playingSubject.close();
-    await _volumeSubject.close();
-    await _speedSubject.close();
-    await _pitchSubject.close();
+      await _playbackEventSubject.close();
+      await _sequenceStateSubject.close();
+      await _playingSubject.close();
+      await _volumeSubject.close();
+      await _speedSubject.close();
+      await _pitchSubject.close();
 
-    await Future<void>.delayed(Duration.zero);
-    await _durationSubject.close();
-    await _processingStateSubject.close();
-    await _bufferedPositionSubject.close();
-    await _icyMetadataSubject.close();
-    await _androidAudioSessionIdSubject.close();
-    await _errorSubject.close();
-    await _playerStateSubject.close();
-    await _skipSilenceEnabledSubject.close();
-    await _positionDiscontinuitySubject.close();
-    await _sequenceSubject.close();
-    await _shuffleIndicesSubject.close();
-    await _currentIndexSubject.close();
-    await _loopModeSubject.close();
-    await _shuffleModeEnabledSubject.close();
-    await _shuffleModeEnabledSubject.close();
+      await Future<void>.delayed(Duration.zero);
+      await _durationSubject.close();
+      await _processingStateSubject.close();
+      await _bufferedPositionSubject.close();
+      await _icyMetadataSubject.close();
+      await _androidAudioSessionIdSubject.close();
+      await _errorSubject.close();
+      await _playerStateSubject.close();
+      await _skipSilenceEnabledSubject.close();
+      await _positionDiscontinuitySubject.close();
+      await _sequenceSubject.close();
+      await _shuffleIndicesSubject.close();
+      await _currentIndexSubject.close();
+      await _loopModeSubject.close();
+      await _shuffleModeEnabledSubject.close();
+      await _shuffleModeEnabledSubject.close();
 
-    if (playbackEvent.processingState != ProcessingState.idle) {
-      _playbackEventSubject
-          .add(playbackEvent.copyWith(processingState: ProcessingState.idle));
-    }
+      if (playbackEvent.processingState != ProcessingState.idle) {
+        _playbackEventSubject
+            .add(playbackEvent.copyWith(processingState: ProcessingState.idle));
+      }
+    });
   }
 
   /// Switches to using the native platform when [active] is `true` and using the

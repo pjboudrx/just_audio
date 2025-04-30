@@ -2,6 +2,7 @@
 
 * Fix playing/playbackEvent emission order.
 * Fix rxdart errors on lower bound rxdart 0.26.0.
+* Fix MissingPluginException in dispose on iOS.
 
 ## 0.10.1
 
