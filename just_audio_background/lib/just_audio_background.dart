@@ -72,6 +72,22 @@ class JustAudioBackground {
       androidBrowsableRootExtras: androidBrowsableRootExtras,
     );
   }
+
+  /// Clear the current device playback.
+  /// On iOS, this has the effect to dismiss the device player.
+  static Future<void> clearPlayback() async {
+    await _audioHandler.stop();
+    if (_audioHandler.inner is _PlayerAudioHandler) {
+      final playerHandler = _audioHandler.inner as _PlayerAudioHandler;
+      playerHandler._justAudioEvent = playerHandler._justAudioEvent.copyWith(
+        processingState: ProcessingStateMessage.idle,
+      );
+      playerHandler._playing = false;
+      playerHandler._broadcastState();
+      playerHandler.updateQueue([]);
+      playerHandler.mediaItem.add(null);
+    }
+  }
 }
 
 class _JustAudioBackgroundPlugin extends JustAudioPlatform {
