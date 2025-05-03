@@ -73,19 +73,11 @@ class JustAudioBackground {
     );
   }
 
-  /// Clear the current device playback.
-  /// On iOS, this has the effect to dismiss the device player.
-  static Future<void> clearPlayback() async {
-    await _audioHandler.stop();
+  /// Ensure the player state is broadcasted to the device.
+  static Future<void> broadcastState() async {
     if (_audioHandler.inner is _PlayerAudioHandler) {
       final playerHandler = _audioHandler.inner as _PlayerAudioHandler;
-      playerHandler._justAudioEvent = playerHandler._justAudioEvent.copyWith(
-        processingState: ProcessingStateMessage.idle,
-      );
-      playerHandler._playing = false;
       playerHandler._broadcastState();
-      playerHandler.updateQueue([]);
-      playerHandler.mediaItem.add(null);
     }
   }
 }
