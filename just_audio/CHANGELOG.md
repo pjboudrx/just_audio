@@ -1,3 +1,7 @@
+## 0.10.3
+
+* Fix pending timers bug in unit tests.
+
 ## 0.10.2
 
 * Add Player.playerEvent.
