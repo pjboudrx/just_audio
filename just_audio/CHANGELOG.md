@@ -1,6 +1,7 @@
 ## 0.10.3
 
 * Fix pending timers bug in unit tests.
+* Fix NPE in Android position broadcast.
 
 ## 0.10.2
 
