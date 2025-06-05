@@ -911,10 +911,7 @@ class AudioPlayer {
       return await _load(
         await _platform,
         _playlist,
-        initialSeekValues: (
-          index: pluginLoadRequest?.initialIndex ?? 0,
-          position: pluginLoadRequest?.initialPosition ?? Duration.zero,
-        ),
+        initialSeekValues: pluginLoadRequest?.initialSeekValues,
       );
     } else {
       // This will implicitly load the current audio source.
