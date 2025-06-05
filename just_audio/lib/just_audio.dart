@@ -912,8 +912,8 @@ class AudioPlayer {
         await _platform,
         _playlist,
         initialSeekValues: (
-          index: pluginLoadRequest?.initialIndex ?? currentIndex,
-          position: pluginLoadRequest?.initialPosition ?? position,
+          index: pluginLoadRequest?.initialIndex ?? 0,
+          position: pluginLoadRequest?.initialPosition ?? Duration.zero,
         ),
       );
     } else {
