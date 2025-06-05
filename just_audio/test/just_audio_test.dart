@@ -176,6 +176,28 @@ void runTests() {
     await player.dispose();
   });
 
+  test('initial-seek-values', () async {
+    final player = AudioPlayer();
+    const targetPos = Duration(seconds: 2);
+    await player.setAudioSources([
+      AudioSource.uri(Uri.parse('https://a.a/a.mp3')),
+      AudioSource.uri(Uri.parse('https://b.b/b.mp3')),
+    ], initialPosition: targetPos, initialIndex: 1);
+    expect(player.position, targetPos);
+    expect(player.currentIndex, 1);
+    await player.stop();
+    await player.load();
+    expect(player.position, targetPos);
+    expect(player.currentIndex, 1);
+    await player.setAudioSources([
+      AudioSource.uri(Uri.parse('https://a.a/a.mp3')),
+      AudioSource.uri(Uri.parse('https://b.b/b.mp3')),
+    ]);
+    expect(player.position, equals(Duration.zero));
+    expect(player.currentIndex, 0);
+    await player.dispose();
+  });
+
   test('load error', () async {
     final player = AudioPlayer();
     Object? exception;

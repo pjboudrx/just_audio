@@ -2,6 +2,7 @@
 
 * Fix bug on simultaneous loads.
 * Fix dispose crash on iOS.
+* Fix initial seek values on subsequent loads (@Abestanis).
 
 ## 0.10.3
 
