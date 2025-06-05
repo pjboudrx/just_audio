@@ -1,6 +1,7 @@
 ## 0.10.4
 
 * Fix bug on simultaneous loads.
+* Fix dispose crash on iOS.
 
 ## 0.10.3
 
